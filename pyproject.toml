@@ -1,0 +1,12 @@
+[project]
+name = "dot"
+version = "0.1.1"
+description = "Data Orchestration Tool"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pyyaml>=6.0.2",
+]
+
+[project.scripts]
+dot = "dot.cli:app"

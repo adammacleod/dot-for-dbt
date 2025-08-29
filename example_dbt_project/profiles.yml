@@ -1,0 +1,7 @@
+example_dbt_project:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: dbt.duckdb
+      threads: 1
