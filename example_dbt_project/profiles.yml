@@ -4,4 +4,9 @@ example_dbt_project:
     dev:
       type: duckdb
       path: dbt.duckdb
+      schema: dev
+      threads: 1
+    prod:
+      type: duckdb
+      path: dbt.duckdb
       threads: 1

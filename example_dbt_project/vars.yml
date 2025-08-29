@@ -1,0 +1,52 @@
+# The `vars` section documents all variables used in your dbt project.
+# Each variable entry describes its purpose, valid values, and default/required status.
+#
+# Example:
+# vars:
+#   my_variable:
+#     description: Description of what this variable controls.
+#     values: # The values which this variable can take
+#       - <value>
+#       - <value>
+#     strict: true # Whether we should only allow the specified values
+#     default: <value> # A default value will always be set, unless overridden.
+#     required: true # Whether this variable must be set
+vars:
+  filter_null_values:
+    description: Determines whether null values should be filtered out
+    values:
+      - true
+      - false
+    default: false
+
+
+# The `context` section defines sets of command line arguments which should be passed
+# to the dbt CLI. There are two special contexts, `all` and `default`.
+# Arguments specified in `all` will be applied to all contexts, unless overridden in the context.
+# `default` is the name of the default context, which will be run if a context is not specified.
+#
+# Example:
+#
+# context:
+#   default: <context_name>
+#   all:
+#     <argument>: <value>
+#   <context_name>:
+#     <argument>: <value>
+#     vars:
+#       <my_variable>: <value>
+context:
+  default: dev
+
+  all:
+    indirect-selection: buildable
+
+  dev:
+    target: dev
+    vars:
+      filter_null_values: true
+
+  prod:
+    target: prod
+    vars:
+      filter_null_values: false

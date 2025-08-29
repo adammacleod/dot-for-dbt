@@ -36,37 +36,31 @@ def app():
         nargs="?",
         help="Context name as defined in vars.yml (optional, uses default if omitted)"
     )
-    parser.add_argument(
-        "additional_params",
-        nargs="*",
-        help="Additional parameters to pass to dbt"
-    )
     args = parser.parse_args(cli_args)
 
     vars_yml_path = Path(os.getcwd()) / "vars.yml"
-    if not vars_yml_path.exists():
-        print(f"Error: {vars_yml_path} not found.")
-        sys.exit(1)
+    config = {}
+    context_config = {}
+    all_args = {}
 
-    try:
-        with open(vars_yml_path, "r") as f:
-            config = yaml.safe_load(f)
-    except Exception as e:
-        print(f"Error reading vars.yml: {e}")
-        sys.exit(1)
-
-    context_config = config.get("context", {})
-    default_context_name = context_config.get("default")
-    all_args = context_config.get("all", {})
+    if vars_yml_path.exists():
+        try:
+            with open(vars_yml_path, "r") as f:
+                config = yaml.safe_load(f)
+        except Exception as e:
+            print(f"Error reading vars.yml: {e}")
+            sys.exit(1)
+        context_config = config.get("context", {})
+        default_context_name = context_config.get("default")
+        all_args = context_config.get("all", {})
 
     # Determine context name (use default if not provided)
-    context_name = args.context if args.context else default_context_name
-    if context_name not in context_config:
+    context_name = args.context if args.context else context_config.get("default", None)
+    if args.context and (not context_config or context_name not in context_config):
         print(f"Error: Context '{context_name}' not found in vars.yml.")
         sys.exit(1)
 
-    context = context_config[context_name]
-    context_vars = context.get("vars", {})
+    context = context_config.get(context_name, {})
 
     # Merge CLI arguments: context-specific overrides all
     merged_args = dict(all_args)
@@ -75,30 +69,33 @@ def app():
             merged_args[k] = v
 
     # Remove empty string values from vars
-    filtered_vars = {k: v for k, v in context_vars.items() if v != ""}
+    filtered_vars = {k: v for k, v in context.get("vars", {}).items() if v != ""}
 
     vars_json = json.dumps(filtered_vars)
 
-    dbt_args = [args.dbt_command, f"--vars={vars_json}"]
+    dbt_command = ['dbt', args.dbt_command]
+
+    if len(filtered_vars) > 0:
+        dbt_command.append(f'--vars={vars_json}')
+
     for k, v in merged_args.items():
         if isinstance(v, bool):
             if v:
-                dbt_args.append(f"--{k}")
+                dbt_command.append(f"--{k}")
             # If false, do not add anything
         elif v is not None and v != "":
-            dbt_args.append(f"--{k}")
-            dbt_args.append(str(v))
-    dbt_args += args.additional_params + passthrough_args
+            dbt_command.append(f"--{k}")
+            dbt_command.append(str(v))
 
-    cmd = ["dbt"] + dbt_args
+    dbt_command += passthrough_args
 
-    print("\033[1;32m\033[1m" + " ".join(cmd) + "\033[0m")
+    print("\033[1;32m\033[1m" + " ".join(dbt_command) + "\033[0m")
 
     if args.dry_run:
         sys.exit(0)
 
     try:
-        result = subprocess.run(cmd, check=True)
+        result = subprocess.run(dbt_command, check=True)
         sys.exit(result.returncode)
     except subprocess.CalledProcessError as e:
         sys.exit(e.returncode)
