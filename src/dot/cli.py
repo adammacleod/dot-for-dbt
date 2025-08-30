@@ -1,16 +1,22 @@
 #!/usr/bin/env python3
 
-import os
-import subprocess
-import yaml
-import json
-from pathlib import Path
-import argparse
 import sys
+import argparse
+import subprocess
+from dot import dot
+from pathlib import Path
 
-def app():
-    # Split sys.argv at the first standalone '--'
+def parse_args():
+    """
+    Parse command-line arguments and separate passthrough args.
+
+    Returns:
+        argparse.Namespace: Parsed arguments.
+        List[str]: Passthrough arguments after '--'.
+    """
+
     argv = sys.argv[1:]
+
     if '--' in argv:
         idx = argv.index('--')
         cli_args = argv[:idx]
@@ -37,57 +43,28 @@ def app():
         help="Context name as defined in vars.yml (optional, uses default if omitted)"
     )
     args = parser.parse_args(cli_args)
+    return args, passthrough_args
 
-    vars_yml_path = Path(os.getcwd()) / "vars.yml"
-    config = {}
-    context_config = {}
-    all_args = {}
+def app():
+    """
+    Main entry point for the CLI application.
 
-    if vars_yml_path.exists():
-        try:
-            with open(vars_yml_path, "r") as f:
-                config = yaml.safe_load(f)
-        except Exception as e:
-            print(f"Error reading vars.yml: {e}")
-            sys.exit(1)
-        context_config = config.get("context", {})
-        default_context_name = context_config.get("default")
-        all_args = context_config.get("all", {})
+    Parses command-line arguments, constructs the dbt command using context from vars.yml,
+    prints the command to the terminal, and executes it unless --dry-run is specified.
+    """
+    args, passthrough_args = parse_args()
 
-    # Determine context name (use default if not provided)
-    context_name = args.context if args.context else context_config.get("default", None)
-    if args.context and (not context_config or context_name not in context_config):
-        print(f"Error: Context '{context_name}' not found in vars.yml.")
+    try:
+        vars_yml_path = Path.cwd() / "vars.yml"
+        dbt_command = dot.dbt_command(
+            args.dbt_command,
+            vars_yml_path,
+            args.context,
+            passthrough_args
+        )
+    except Exception as e:
+        print(f"Error: {e}")
         sys.exit(1)
-
-    context = context_config.get(context_name, {})
-
-    # Merge CLI arguments: context-specific overrides all
-    merged_args = dict(all_args)
-    for k, v in context.items():
-        if k != "vars":
-            merged_args[k] = v
-
-    # Remove empty string values from vars
-    filtered_vars = {k: v for k, v in context.get("vars", {}).items() if v != ""}
-
-    vars_json = json.dumps(filtered_vars)
-
-    dbt_command = ['dbt', args.dbt_command]
-
-    if len(filtered_vars) > 0:
-        dbt_command.append(f'--vars={vars_json}')
-
-    for k, v in merged_args.items():
-        if isinstance(v, bool):
-            if v:
-                dbt_command.append(f"--{k}")
-            # If false, do not add anything
-        elif v is not None and v != "":
-            dbt_command.append(f"--{k}")
-            dbt_command.append(str(v))
-
-    dbt_command += passthrough_args
 
     print("\033[1;32m\033[1m" + " ".join(dbt_command) + "\033[0m")
 
