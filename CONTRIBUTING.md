@@ -36,7 +36,7 @@ dot build prod
 - Follow modern Python tooling and conventions (e.g., [uv](https://github.com/astral-sh/uv)).
 - Keep the codebase clean and well-documented.
 - Update the README.md and this file if your changes affect usage or development.
-- Document major design decisions using an ADR (Architectural Decision Register).
+- Document major design decisions using an ADR (Architectural Decision Register). See the [adr/](adr/) directory for existing decisions, including [ADR 0001: Commit Isolated Schemas for dbt Builds](adr/0001-commit-isolated-schemas.md), which describes the commit isolated schemas workflow.
 
 ## How to Get Help
 

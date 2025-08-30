@@ -9,8 +9,6 @@
 
 - dbt cli:
 
-    - Context management for dbt command line runs (manages variables)
-
     - Some kind of diff process. Either, build two versions of project into different schemas, and do some diff ontop. Or, the project is able to create copies of the models automatically and create diff models ontop. Maybe using dbt model versions? `dc diff dev dev@githash <model_name>` Creates a diff between a model in dev env at current dev and also at a specific hash. If that model is not built already @hash, then we should checkout the hash and build it. We could do some smart defers here to avoid rebuilding too much.
 
     - What if we build our project into schemas which reference the git commit hash? `dc run dev@githash` would build a clean copy of `githash` into `schema_githash`. This could be accomplished by using `git worktree` which creates secondary working trees, independent from your repo.
