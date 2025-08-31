@@ -32,10 +32,7 @@ This plan outlines the implementation of commit-isolated schemas for dbt builds,
 5. **CLI Integration**
    - Update or create CLI commands (e.g., `dc run dev@ref`) to orchestrate the above steps.
 
-6. **Cleanup and Management**
-   - Provide commands/utilities to list and remove old `.dot/<hash>/` directories and schemas.
-
-7. **Testing and Documentation**
+6. **Testing and Documentation**
    - Add tests for ref resolution, worktree management, and schema isolation.
    - Update documentation and usage examples.
    - Reference the ADR and this plan in project docs.
@@ -50,15 +47,14 @@ This plan outlines the implementation of commit-isolated schemas for dbt builds,
 - [x] Require repo_path as Path type for resolve_git_ref
 - [x] Move all git-related code to src/dot/git.py
 - [x] Restore TODO.md to original content
-- [ ] Implement worktree management code for clean checkouts in .dot/<hash>/worktree/
-- [ ] Implement schema naming and profiles logic (.dot/<hash>/profiles.yml)
-- [ ] Implement target path isolation (.dot/<hash>/target/)
-- [ ] Integrate with CLI (e.g., dc run dev@ref)
-- [ ] Implement cleanup and management utilities for .dot/<hash>/ directories and schemas
+- [x] Implement worktree management code for clean checkouts in .dot/<hash>/worktree/ (create_worktree)
+- [x] Implement schema naming and profiles logic (.dot/<hash>/profiles.yml)
+- [x] Integrate with CLI (e.g., dc run dev@gitref)
+- [x] Implement target path isolation (.dot/<hash>/target/)
 - [ ] Add tests for worktree management and schema isolation
 - [ ] Update documentation, usage examples, ADR, and reference this plan in docs
 - [ ] Update CONTRIBUTING.md and README.md as needed
-- [ ] Run tests and build: cd example_dbt_project; dot build prod
+- [ ] Run tests
 - [ ] Verify results and finalize task
 
 ## Risks and Mitigations

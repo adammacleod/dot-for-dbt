@@ -3,11 +3,33 @@ import json
 from pathlib import Path
 from typing import Dict, Any, Optional, Tuple, List
 
+# Allowed dbt CLI arguments for each subcommand, based on dbt documentation.
+DBT_COMMAND_ARGS = {
+    "build": ["--select", "--exclude", "--selector", "--resource-type", "--defer", "--vars", "--target"],
+    "clean": ["--vars", "--target"],
+    "clone": ["--vars", "--target"],
+    "compile": ["--select", "--exclude", "--selector", "--inline", "--vars", "--target"],
+    "debug": ["--vars", "--target"],
+    "deps": ["--vars", "--target"],
+    "docs": ["--select", "--exclude", "--selector", "--vars", "--target"],  # docs generate
+    "init": ["--vars", "--target"],
+    "list": ["--select", "--exclude", "--selector", "--resource-type", "--vars", "--target"],
+    "parse": ["--vars", "--target"],
+    "retry": ["--vars", "--target"],
+    "run": ["--select", "--exclude", "--selector", "--defer", "--vars", "--target"],
+    "run-operation": ["--args", "--vars", "--target"],
+    "seed": ["--select", "--exclude", "--selector", "--vars", "--target"],
+    "show": ["--select", "--vars", "--target"],
+    "snapshot": ["--select", "--exclude", "--selector", "--vars", "--target"],
+    "source": ["--vars", "--target"],
+    "test": ["--select", "--exclude", "--selector", "--defer", "--vars", "--target"],
+}
+
 
 def dbt_command(
     dbt_command_name: str,
     vars_yml_path: Path,
-    context_name: Optional[str],
+    active_context: Optional[str],
     passthrough_args: Optional[List[str]] = None,
 ) -> List[str]:
     """
@@ -16,7 +38,7 @@ def dbt_command(
     Args:
         dbt_command_name (str): The dbt subcommand to run (e.g., 'run', 'test').
         vars_yml_path (Path): Path to the vars.yml configuration file.
-        context_name (Optional[str]): Name of the context to use from vars.yml.
+        active_context (Optional[str]): Name of the context to use from vars.yml.
         passthrough_args (Optional[List[str]]): Additional arguments to pass through to dbt.
 
     Returns:
@@ -24,7 +46,7 @@ def dbt_command(
     """
     # config_context is the 'context' dict, which may contain 'all', 'default', and named contexts
     config_vars, config_context = _load_vars_yml(vars_yml_path)
-    merged_context = _resolve_context(config_context, context_name)
+    merged_context = _resolve_context(config_context, active_context)
 
     return _dbt_command(
         dbt_command_name, 
@@ -70,7 +92,7 @@ def _load_vars_yml(path: Path) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
 def _resolve_context(
     config_context: Dict[str, Any], 
-    context_name: Optional[str] = None
+    active_context: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Resolve and merge the dbt context configuration.
@@ -84,7 +106,7 @@ def _resolve_context(
 
     Args:
         config_context (Dict[str, Any]): The 'context' dictionary from vars.yml.
-        context_name (Optional[str]): The name of the context to use. If None, uses the default.
+        active_context (Optional[str]): The name of the context to use. If None, uses the default.
 
     Returns:
         Dict[str, Any]: The merged context dictionary.
@@ -95,15 +117,15 @@ def _resolve_context(
 
     default_context_name: Optional[str] = config_context.get("default")
 
-    if context_name is None:
-        context_name = default_context_name
+    if active_context is None:
+        active_context = default_context_name
 
-    if context_name and (not config_context or context_name not in config_context):
-        raise ValueError(f"Context '{context_name}' not found in vars.yml.")
+    if active_context and (not config_context or active_context not in config_context):
+        raise ValueError(f"Context '{active_context}' not found in vars.yml.")
     
     merged_context: Dict[str, Any] = {}
     context_all = config_context.get("all", {})
-    context_selected = config_context.get(context_name, {})
+    context_selected = config_context.get(active_context, {})
 
     merged_context.update(context_all)
     merged_context.update(context_selected)
@@ -127,17 +149,19 @@ def _dbt_command(
     Returns:
         List[str]: The complete dbt command as a list of arguments.
     """
-    
+    # Filter context to only allowed args for this subcommand
+    filtered_context = _filter_allowed_args(dbt_command_name, context)
+
     dbt_command: List[str] = ['dbt', dbt_command_name]
 
-    vars = context.get("vars", {})
-    context.pop("vars", None)
+    vars = filtered_context.get("vars", {})
+    filtered_context.pop("vars", None)
 
     if len(vars) > 0:
         vars_json = json.dumps(vars)
         dbt_command.append(f'--vars={vars_json}')
 
-    for k, v in context.items():
+    for k, v in filtered_context.items():
         if isinstance(v, bool):
             if v:
                 dbt_command.append(f"--{k}")
@@ -148,3 +172,38 @@ def _dbt_command(
     dbt_command += passthrough_args
 
     return dbt_command
+
+
+def _filter_allowed_args(dbt_command_name: str, context: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Filter the context dictionary to only include allowed arguments for the given dbt subcommand.
+
+    This function is used to ensure that only arguments explicitly allowed for a specific dbt subcommand
+    (as defined in DBT_COMMAND_ARGS) are included in the command context generated by project logic or
+    vars.yml. This prevents accidental or unsupported arguments from being injected into the dbt CLI
+    invocation by project configuration, while still allowing end users to pass any arguments directly
+    via passthrough_args.
+
+    Args:
+        dbt_command_name (str): The dbt subcommand to run (e.g., 'run', 'build', 'test').
+        context (Dict[str, Any]): The merged context dictionary containing dbt options and variables
+            generated from project logic or vars.yml.
+
+    Returns:
+        Dict[str, Any]: A new dictionary containing only the allowed arguments for the specified
+            dbt subcommand, plus the 'vars' key if present.
+
+    Usage:
+        This function is called internally by _dbt_command before constructing the final dbt CLI
+        command. It does not affect passthrough_args, which are always passed through unfiltered.
+
+    Example:
+        filtered_context = _filter_allowed_args("run", {"select": "my_model", "foo": "bar", "vars": {...}})
+        # Result: {"select": "my_model", "vars": {...}}
+    """
+    allowed = set(a.lstrip('-') for a in DBT_COMMAND_ARGS.get(dbt_command_name, []))
+    filtered = {}
+    for k, v in context.items():
+        if k in allowed:
+            filtered[k] = v
+    return filtered
