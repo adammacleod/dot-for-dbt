@@ -39,9 +39,22 @@ def _get_repo(path: Path) -> Repository:
 
 
 def get_commit_hash_from_gitref(
-        repo_path: Path, 
-        gitref: str
+    repo_path: Path,
+    gitref: str
 ) -> str:
+    """
+    Resolve a git reference (eg, branch name, short commit hash, or tag) to a commit hash.
+
+    Args:
+        repo_path (Path): Path to the git repository.
+        gitref (str): Git reference (branch, tag, or commit hash).
+
+    Returns:
+        str: The resolved commit hash.
+
+    Raises:
+        ValueError: If the reference cannot be resolved.
+    """
     repo = _get_repo(repo_path)
 
     try:
@@ -56,7 +69,7 @@ def get_commit_hash_from_gitref(
     return commit_hash_str
 
 def create_worktree(
-    repo_path: Path, 
+    repo_path: Path,
     worktree_path: Path,
     commit_hash: str
 ) -> None:

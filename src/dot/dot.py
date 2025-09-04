@@ -2,7 +2,7 @@ import yaml
 import json
 
 from pathlib import Path
-from typing import Dict, Any, Optional, Tuple, List
+from typing import Dict, Any, Optional, List
 
 from .git import create_worktree, get_repo_path, get_commit_hash_from_gitref
 from .profiles import write_isolated_profiles_yml
@@ -113,9 +113,9 @@ def dbt_command(
     dbt_project_path: Path,
     vars_yml_path: Path,
     active_context: Optional[str],
-    passthrough_args: Optional[List[str]] = None,
+    passthrough_args: Optional[list[str]] = None,
     gitref: Optional[str] = None
-) -> List[str]:
+) -> list[str]:
     """
     Construct a dbt CLI command as a list of arguments.
 
@@ -136,7 +136,7 @@ def dbt_command(
         gitref (Optional[str]): Git ref or commit hash for isolated build.
 
     Returns:
-        Tuple[Path, List[str]]: dbt_project_path and the constructed dbt_command.
+        List[str]: The dbt command
     """
     passthrough_args = passthrough_args if passthrough_args else []
 
@@ -214,7 +214,7 @@ def dbt_command(
 
     return dbt_command
 
-def _load_vars_yml(path: Path) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+def _load_vars_yml(path: Path) -> tuple[dict[str, Any], dict[str, Any]]:
     """
     Load the vars.yml file from the specified path.
 
@@ -250,9 +250,9 @@ def _load_vars_yml(path: Path) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
 
 def _resolve_context(
-    config_context: Dict[str, Any], 
+    config_context: dict[str, Any], 
     active_context: Optional[str] = None
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Resolve and merge the dbt context configuration, returning the context configuration for
     the active_context.
@@ -295,9 +295,9 @@ def _resolve_context(
 
 def _dbt_command(
     dbt_command_name: str,
-    context: Dict[str, Any],
-    passthrough_args: List[str],
-) -> List[str]:
+    context: dict[str, Any],
+    passthrough_args: list[str],
+) -> list[str]:
     """
     Build the dbt command list from the provided context and arguments.
 
@@ -334,7 +334,7 @@ def _dbt_command(
     return dbt_command
 
 
-def _filter_allowed_args(dbt_command_name: str, context: Dict[str, Any]) -> Dict[str, Any]:
+def _filter_allowed_args(dbt_command_name: str, context: dict[str, Any]) -> dict[str, Any]:
     """
     Filter the context dictionary to only include allowed arguments for the given dbt subcommand.
 

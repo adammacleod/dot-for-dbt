@@ -10,7 +10,7 @@ from pygit2 import Repository, discover_repository
 from .profiles import write_isolated_profiles_yml
 
 
-def parse_args():
+def parse_args() -> tuple[argparse.Namespace, list[str]]:
     """
     Parse command-line arguments and separate passthrough args.
 

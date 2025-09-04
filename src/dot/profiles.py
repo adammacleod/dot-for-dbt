@@ -28,6 +28,7 @@ def write_isolated_profiles_yml(
     # 
     #   --profile TEXT   Which existing profile to load. Overrides
     #                    setting in dbt_project.yml.
+
     # Get the profile name from dbt_project.yml
     dbt_project_yml_path = dbt_project_path / "dbt_project.yml"
     with open(dbt_project_yml_path, "r") as f:
@@ -78,15 +79,23 @@ def write_isolated_profiles_yml(
 
 
 def _profiles_yml_path(
-    dbt_project_path: Path, 
+    dbt_project_path: Path,
     active_context: str
 ) -> Path:
     """
     Detect the location of profiles.yml using dbt debug output.
+
+    Args:
+        dbt_project_path (Path): The path to the dbt project directory.
+        active_context (str): The dbt context/target name to use.
+
     Returns:
         Path: The path to the detected profiles.yml file.
+
+    Raises:
+        FileNotFoundError: If the profiles.yml location cannot be detected.
     """
-    # Use dot.dbt_command to run dbt debug and capture output
+
     # TODO: Decide if we should use vars.yml from the current dbt project, 
     # or the isolated build environment. 
     # I was thinking to take this from the worktree path, although I'm not
@@ -101,6 +110,8 @@ def _profiles_yml_path(
     # stabalise vars.yml, and introduce something like user_vars.yml. With
     # the precedence for building the project to go:
     # command line args > user_vars.yml > vars.yml > dbt_project.yml.
+
+    # Use dot.dbt_command to run dbt debug and capture output
     dbt_command = dot.dbt_command(
         dbt_command_name="debug",
         dbt_project_path=dbt_project_path,
