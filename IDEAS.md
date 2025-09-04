@@ -20,4 +20,6 @@
 
 - Improve / test everything.
 
-- Creating a worktree seems to add a branch named after the commit. We don't want to do this as it's quite messy. Let's try and find a way to not have to do that (usually by passing Reference to pygit2 call, but we don't have a valid reference to pass...)
+- Allow dot to fully manage your profiles dir. It could prompt on the command line for settings, automatically store them into env vars, or something along those lines. eg: store them safely!
+
+- Make vscode fully ignore the .dot directory, this causes havoc when doing ctrl-p etc, although maybe it's useful to see what's in each worktree.

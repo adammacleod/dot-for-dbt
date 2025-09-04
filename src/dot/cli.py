@@ -62,7 +62,7 @@ def parse_args():
     return args, passthrough_args
 
 
-def app():
+def app() -> int:
     """
     Main entry point for the CLI application.
 
@@ -87,45 +87,15 @@ def app():
             active_context = None if active_context.strip() == '' else active_context
             gitref = None if gitref.strip() == '' else gitref
 
-        if gitref:
-            # TODO: Push this gitref logic down into dot.dbt_command by passing gitref as an optional arg.
-            # TODO: Respect --dry-run and don't create worktrees or profiles in that case.
+        dbt_command = dot.dbt_command(
+            dbt_command_name=args.dbt_command,
+            dbt_project_path=dbt_project_path,
+            vars_yml_path=vars_yml_path,
+            active_context=active_context,
+            passthrough_args=passthrough_args,
+            gitref=gitref
+        )
 
-            # If a gitref is passed, then we will checkout a clean copy of the ref into the .dot 
-            # directory, create a profiles.yml to build that commit into an isolated schema
-            
-            # Create worktree for the gitref
-            worktree_path, commit_hash_str = create_worktree(Path.cwd(), gitref)
-
-            # Create isolated profiles.yml
-            profiles_dir = (worktree_path / '..').resolve()
-            write_isolated_profiles_yml(dbt_project_path, commit_hash_str, profiles_dir, active_context)
-
-            # TODO: Eventually, find a way to add this into the context instead of using it as passthrough args.
-            # Right if someone specifies an arg in their context for profiles-dir, this will get generated on the command
-            # line twice.
-            passthrough_args.append('--profiles-dir')
-            passthrough_args.append(str(profiles_dir))
-
-            # TODO: Eventually find a better way to set this in the context rather than via passthrough_args
-            # Add target path isolation for this build
-            target_path = profiles_dir / "target"
-            passthrough_args.append('--target-path')
-            passthrough_args.append(str(target_path))
-
-            dbt_command = dot.dbt_command(
-                args.dbt_command,
-                vars_yml_path,
-                active_context,
-                passthrough_args
-            )
-        else:
-            dbt_command = dot.dbt_command(
-                args.dbt_command,
-                vars_yml_path,
-                active_context,
-                passthrough_args
-            )
     except Exception as e:
         print(f"Error: {e}")
         if args.verbose:
@@ -133,19 +103,23 @@ def app():
         else:
             sys.exit(1)
 
+    print(f"dbt_project_path: {dbt_project_path}")
     print("\033[1;32m\033[1m" + " ".join(dbt_command) + "\033[0m")
 
     if args.dry_run:
-        sys.exit(0)
+        return 0
 
     try:
-        result = subprocess.run(dbt_command, check=True)
-        sys.exit(result.returncode)
+        result = subprocess.run(
+            dbt_command,
+            check=True
+        )
+        return result.returncode
     except subprocess.CalledProcessError as e:
-        sys.exit(e.returncode)
+        return e.returncode
 
 if __name__ == "__main__":
     try:
-        app()
+        sys.exit(app())
     except KeyboardInterrupt:
         sys.exit(130)

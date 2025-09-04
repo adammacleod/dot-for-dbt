@@ -1,59 +1,218 @@
 import yaml
 import json
+
 from pathlib import Path
 from typing import Dict, Any, Optional, Tuple, List
 
+from .git import create_worktree, get_repo_path, get_commit_hash_from_gitref
+from .profiles import write_isolated_profiles_yml
+
+# Common dbt CLI arguments used across subcommands.
+COMMON_DBT_ARGS = [
+    "--vars", 
+    "--target",
+    "--profiles-dir",
+    "--project-dir",
+    "--target-path",
+    "--log-path",
+]
+
 # Allowed dbt CLI arguments for each subcommand, based on dbt documentation.
 DBT_COMMAND_ARGS = {
-    "build": ["--select", "--exclude", "--selector", "--resource-type", "--defer", "--vars", "--target"],
-    "clean": ["--vars", "--target"],
-    "clone": ["--vars", "--target"],
-    "compile": ["--select", "--exclude", "--selector", "--inline", "--vars", "--target"],
-    "debug": ["--vars", "--target"],
-    "deps": ["--vars", "--target"],
-    "docs": ["--select", "--exclude", "--selector", "--vars", "--target"],  # docs generate
-    "init": ["--vars", "--target"],
-    "list": ["--select", "--exclude", "--selector", "--resource-type", "--vars", "--target"],
-    "parse": ["--vars", "--target"],
-    "retry": ["--vars", "--target"],
-    "run": ["--select", "--exclude", "--selector", "--defer", "--vars", "--target"],
-    "run-operation": ["--args", "--vars", "--target"],
-    "seed": ["--select", "--exclude", "--selector", "--vars", "--target"],
-    "show": ["--select", "--vars", "--target"],
-    "snapshot": ["--select", "--exclude", "--selector", "--vars", "--target"],
-    "source": ["--vars", "--target"],
-    "test": ["--select", "--exclude", "--selector", "--defer", "--vars", "--target"],
+    "build": [
+        *COMMON_DBT_ARGS,
+        "--select",
+        "--exclude",
+        "--selector",
+        "--resource-type",
+        "--defer",
+    ],
+    "clean": [
+        *COMMON_DBT_ARGS,
+    ],
+    "clone": [
+        *COMMON_DBT_ARGS,
+    ],
+    "compile": [
+        *COMMON_DBT_ARGS,
+        "--select",
+        "--exclude",
+        "--selector",
+        "--inline",
+    ],
+    "debug": [
+        *COMMON_DBT_ARGS,
+    ],
+    "deps": [
+        *COMMON_DBT_ARGS,
+    ],
+    "docs": [
+        *COMMON_DBT_ARGS,
+        "--select",
+        "--exclude",
+        "--selector",
+    ],
+    "init": [
+        *COMMON_DBT_ARGS,
+    ],
+    "list": [
+        *COMMON_DBT_ARGS,
+        "--select",
+        "--exclude",
+        "--selector",
+        "--resource-type",
+    ],
+    "parse": [
+        *COMMON_DBT_ARGS,
+    ],
+    "retry": [
+        *COMMON_DBT_ARGS,
+    ],
+    "run": [
+        *COMMON_DBT_ARGS,
+        "--select",
+        "--exclude",
+        "--selector",
+        "--defer",
+    ],
+    "run-operation": [
+        *COMMON_DBT_ARGS,
+        "--args",
+    ],
+    "seed": [
+        *COMMON_DBT_ARGS,
+        "--select",
+        "--exclude",
+        "--selector",
+    ],
+    "show": [
+        *COMMON_DBT_ARGS,
+        "--select",
+    ],
+    "snapshot": [
+        *COMMON_DBT_ARGS,
+        "--select",
+        "--exclude",
+        "--selector",
+    ],
+    "source": [
+        *COMMON_DBT_ARGS,
+    ],
+    "test": [
+        *COMMON_DBT_ARGS,
+        "--select",
+        "--exclude",
+        "--selector",
+        "--defer",
+    ],
 }
 
 
 def dbt_command(
     dbt_command_name: str,
+    dbt_project_path: Path,
     vars_yml_path: Path,
     active_context: Optional[str],
     passthrough_args: Optional[List[str]] = None,
+    gitref: Optional[str] = None
 ) -> List[str]:
     """
     Construct a dbt CLI command as a list of arguments.
 
+    If a gitref is passed then this command will checkout a clean worktree of that
+    commit and return the dbt_project_path for the dbt project within the new
+    worktree.
+
+    It will also make a copy of your main repositories profiles.yml, and update
+    it's configuration to write into an isolated schema labelled 
+    <schema>_<commithash>.
+
     Args:
         dbt_command_name (str): The dbt subcommand to run (e.g., 'run', 'test').
+        dbt_project_path (Path): Path to the dbt project root.
         vars_yml_path (Path): Path to the vars.yml configuration file.
         active_context (Optional[str]): Name of the context to use from vars.yml.
         passthrough_args (Optional[List[str]]): Additional arguments to pass through to dbt.
+        gitref (Optional[str]): Git ref or commit hash for isolated build.
 
     Returns:
-        List[str]: The complete dbt command as a list of arguments.
+        Tuple[Path, List[str]]: dbt_project_path and the constructed dbt_command.
     """
+    passthrough_args = passthrough_args if passthrough_args else []
+
+    if dbt_project_path is None:
+        raise ValueError("dbt_project_path must be provided")
+    
+    if not (dbt_project_path / "dbt_project.yml").exists():
+        raise ValueError(f"dbt_project.yml not found in: {dbt_project_path}")
+
     # config_context is the 'context' dict, which may contain 'all', 'default', and named contexts
     config_vars, config_context = _load_vars_yml(vars_yml_path)
     merged_context = _resolve_context(config_context, active_context)
+    
+    # Force dbt to build the project within our project path, regardless of cwd.
+    merged_context['project-dir'] = str(dbt_project_path)
 
-    return _dbt_command(
+    # Isolated build logic if gitref is provided
+    if gitref:
+        repo_path = get_repo_path(dbt_project_path)
+        commit_hash = get_commit_hash_from_gitref(repo_path, gitref)
+        isolated_build_path = repo_path / '.dot' / 'isolated_builds' / commit_hash
+        
+        worktree_path = isolated_build_path / 'worktree'
+
+        create_worktree(
+            repo_path,
+            worktree_path,
+            commit_hash
+        )
+
+        # Calculate the relative path of the dbt project inside of the repository,
+        # and then create isolated_dbt_project_path to point to this path inside of the new worktree.
+        isolated_dbt_project_path = (
+            worktree_path / Path.relative_to(dbt_project_path, repo_path)
+        ).resolve()
+        
+        if not isolated_dbt_project_path.exists():
+            raise ValueError(f"dbt project path does not exist in worktree: {dbt_project_path}")
+
+        if not (isolated_dbt_project_path / "dbt_project.yml").exists():
+            raise ValueError(f"dbt_project.yml does not exist in worktree: {dbt_project_path / 'dbt_project.yml'}")
+
+        # We create a folder inside of the build path for each context which
+        # can build against this project. The isolated_context_path contains
+        # a profiles.yml for context and commit_hash, and also the target
+        # folder which contains dbt build artifacts.
+        isolated_context_path = isolated_build_path / active_context
+
+        # By this point there are two dbt projects, the one we are operating on,
+        # and the isolated one which we have checked out in our worktree.
+        # We will resolve profiles.yml by operating on the main one that we are
+        # working with. After resolving the profiles.yml configuration, we will
+        # write it to the isolated profiles directory.
+        write_isolated_profiles_yml(
+            dbt_project_path,
+            isolated_dbt_project_path,
+            isolated_context_path,
+            commit_hash,
+            active_context
+        )
+
+        # Point dbt towards the profiles.yml in our isolated_context_path,
+        # the target directory for build artifacts, and the isolated project
+        # directory for running dbt.
+        merged_context['profiles-dir'] = str(isolated_context_path)
+        merged_context['target-path'] = str(isolated_context_path / 'target')
+        merged_context['project-dir'] = str(isolated_dbt_project_path)
+        merged_context['log-path'] = str(isolated_context_path / 'logs')
+
+    dbt_command = _dbt_command(
         dbt_command_name, 
         merged_context, 
-        passthrough_args if passthrough_args else []
+        passthrough_args
     )
 
+    return dbt_command
 
 def _load_vars_yml(path: Path) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """
@@ -95,7 +254,8 @@ def _resolve_context(
     active_context: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    Resolve and merge the dbt context configuration.
+    Resolve and merge the dbt context configuration, returning the context configuration for
+    the active_context.
 
     When specifying contexts in vars.yml, there is a special context called `all` which contains
     variables and settings that are applicable to all contexts. This allows for a base set of
@@ -109,7 +269,7 @@ def _resolve_context(
         active_context (Optional[str]): The name of the context to use. If None, uses the default.
 
     Returns:
-        Dict[str, Any]: The merged context dictionary.
+        Dict[str, Any]: The merged context dictionary for the active_context only.
 
     Raises:
         ValueError: If the specified context is not found.
