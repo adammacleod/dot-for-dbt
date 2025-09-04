@@ -18,6 +18,6 @@
 
 # Ways of Working
 
-- Always document your major design decisions by following the standards which have been set inside of [adr](../adr), which is our Architectural Design Register. An example ADR is [0001-commit-isolated-schemas.md](../adr/0001-commit-isolated-schemas.md)
+- Always document your major design decisions by following the standards which have been set inside of [adr](../adr), which is our Architectural Design Register. An example ADR is [0001-isolated-builds.md](../adr/0001-isolated-builds.md)
 
-- Always create development plans before beginning work. These are stored in the [development_plans](../development_plans) folder. There is a [README](../development_plans/README.md) with guidelines for development plans. A good example development plan is [0001-commit-isolated-schemas.md](../development_plans/0001-commit-isolated-schemas.md)
+- Always create development plans before beginning work. These are stored in the [development_plans](../development_plans) folder. There is a [README](../development_plans/README.md) with guidelines for development plans. A good example development plan is [0001-isolated-builds.md](../development_plans/0001-isolated-builds.md)

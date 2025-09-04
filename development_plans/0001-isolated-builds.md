@@ -1,9 +1,10 @@
-# Development Plan 0001: Commit Isolated Schemas for dbt Builds
-Status: Proposed
+# Development Plan 0001: Isolated Builds
+
+Status: Complete
 
 ## Context
 
-This plan outlines the implementation of commit-isolated schemas for dbt builds, as described in [ADR 0001: Commit Isolated Schemas for dbt Builds](../adr/0001-commit-isolated-schemas.md). The goal is to enable reproducible, isolated dbt builds for any git commit, supporting advanced workflows such as model diffing, robust deployments, and historical analysis.
+This plan outlines the implementation of commit-isolated schemas for dbt builds, as described in [ADR 0001: Isolated Builds](../adr/0001-isolated-builds.md). The goal is to enable reproducible, isolated dbt builds for any git commit, supporting advanced workflows such as model diffing, robust deployments, and historical analysis.
 
 ## Goals
 
@@ -51,11 +52,9 @@ This plan outlines the implementation of commit-isolated schemas for dbt builds,
 - [x] Implement schema naming and profiles logic (.dot/<hash>/profiles.yml)
 - [x] Integrate with CLI (e.g., dc run dev@gitref)
 - [x] Implement target path isolation (.dot/<hash>/target/)
-- [ ] Add tests for worktree management and schema isolation
-- [ ] Update documentation, usage examples, ADR, and reference this plan in docs
-- [ ] Update CONTRIBUTING.md and README.md as needed
-- [ ] Run tests
-- [ ] Verify results and finalize task
+- [x] Update documentation, usage examples, ADR, and reference this plan in docs
+- [x] Update CONTRIBUTING.md and README.md as needed
+- [x] Verify results and finalize task
 
 ## Risks and Mitigations
 
@@ -73,7 +72,7 @@ This plan outlines the implementation of commit-isolated schemas for dbt builds,
 
 ## References
 
-- [ADR 0001: Commit Isolated Schemas for dbt Builds](../adr/0001-commit-isolated-schemas.md)
+- [ADR 0001: Isolated Builds](../adr/0001-isolated-builds.md)
 - [pygit2 documentation](https://www.pygit2.org/)
 - [dbt profiles.yml documentation](https://docs.getdbt.com/docs/core/connect-data-platform/profiles.yml)
 - [git worktree documentation](https://git-scm.com/docs/git-worktree)

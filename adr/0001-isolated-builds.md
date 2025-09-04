@@ -1,8 +1,8 @@
-# ADR 0001: Commit Isolated Schemas for dbt Builds
+# ADR 0001: Isolated Builds
 
 ## Status
 
-Proposed
+Accepted
 
 ## Context
 
@@ -11,24 +11,30 @@ To enable advanced workflows such as model diffing, reproducible builds, and rob
 ## Decision
 
 - All artifacts related to isolated builds are contained within the `.dot` directory in the project root. For each build:
-  - `.dot/<hash>/worktree/` contains the clean checkout created by `git worktree` at the resolved commit hash.
-  - `.dot/<hash>/profiles.yml` is a custom profiles file targeting `schema_<short_hash>`.
-  - `.dot/<hash>/target/` is used as the dbt `--target-path` for build outputs and manifests.
-- All git operations should use the [pygit2](https://www.pygit2.org/) Python library for portability, maintainability, and consistency. No fallback to the system git CLI is planned.
+  - `.dot/isolated_builds/<hash>/worktree/` contains the clean checkout created by `git worktree` at the resolved commit hash.
+  - `.dot/isolated_builds/<hash>/<context>/profiles.yml` is a custom profiles file targeting `schema_<short_hash>`.
+  - `.dot/isolated_builds/<hash>/<context>/target/` is used as the dbt `--target-path` for build outputs and manifests.
+  - `.dot/isolated_builds/<hash>/<context>/logs/` is used as the dbt `--log-path` for logs for runs in this isolated build
+
+- Where possible we should use the [pygit2](https://www.pygit2.org/) Python library for portability, maintainability, and consistency. Although in some instances we might need to call a subprocess to `git` directly.
+
 - When running `dc run dev@ref`, the system will:
   - Resolve the provided git ref (branch, tag, or hash) to a commit hash using pygit2.
-  - Use pygit2 to create a clean, isolated working tree at `.dot/<hash>/worktree/`.
-  - Build the dbt project in this worktree, targeting a schema named `schema_<short_hash>`, using the custom `.dot/<hash>/profiles.yml`.
-  - Use dbt's `--target-path .dot/<hash>/target/` to isolate manifest/output files per environment.
+  - Use pygit2 to create a clean, isolated working tree at `.dot/isolated_builds/<hash>/worktree/`.
+  - Build the dbt project in this worktree, targeting a schema named `schema_<short_hash>`, using the profiles.yml file from `.dot/isolated_builds/<hash>/<context>/profiles.yml`.
+  - Use dbt's `--target-path .dot/isolated_builds/<hash>/<context>/target` to isolate manifest/output files per environment.
 
-**Example directory structure for a build at commit `<hash>`:**
+**Example directory structure for a build at <commit>:**
 
 ```
 .dot/
-  <hash>/           # Full commit hash directory
-    worktree/
-    profiles.yml    # targets schema_<short_hash>
-    target/
+  isolated_builds/
+    <commit>/          # All code and artifacts required for isolated build of <commit>
+      worktree/        # A clean checkout of the repository at the commit
+      <context>/       # Files which are specific to particular contexts (ie: dev/prod)
+        profiles.yml   # Auto-generated profiles.yml, which sets schema: <schema>_<short_hash>
+        target/        # Output artifacts for this commit and context
+        logs/          # dbt logs generated during the isolated build
 ```
 
 ## Consequences
@@ -40,7 +46,7 @@ To enable advanced workflows such as model diffing, reproducible builds, and rob
 - Ensures that schemas are always tied to immutable commit hashes, avoiding ambiguity from moving refs.
 - Keeps schema names short and manageable by using a short hash, while maintaining uniqueness and traceability.
 - Requires management of multiple worktrees and schemas, including cleanup of old resources in `.dot`.
-- Custom logic is needed to resolve refs (using pygit2), generate and manage `.dot/<hash>/profiles.yml`, and target paths.
+- Custom logic is needed to resolve refs (using pygit2), generate and manage `.dot/isolated_builds/<commit>/*`.
 
 ## Alternatives Considered
 
@@ -50,7 +56,6 @@ To enable advanced workflows such as model diffing, reproducible builds, and rob
 
 ## References
 
-- See TODO.md for original discussion.
 - [pygit2 documentation](https://www.pygit2.org/)
 - See dbt documentation on [profiles.yml](https://docs.getdbt.com/docs/core/connect-data-platform/profiles.yml) and [git worktree](https://git-scm.com/docs/git-worktree).
 - There is a great writeup of git refs [here](https://www.atlassian.com/git/tutorials/refs-and-the-reflog)
