@@ -43,3 +43,9 @@ dot build prod
 If you have questions, open an issue or start a discussion in the repository.
 
 We look forward to your contributions!
+
+## License
+
+By contributing, you agree that your contributions will be licensed under the MIT License. See the `LICENSE` file for details.
+
+SPDX-License-Identifier: MIT

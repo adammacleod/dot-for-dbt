@@ -206,3 +206,9 @@ For architectural rationale see: [ADR 0001: Isolated Builds](adr/0001-isolated-b
 Architectural decisions are documented in the [adr/](adr/) directory.
 
 - [ADR 0001: Isolated Builds](adr/0001-isolated-builds.md)
+
+## License
+
+This project is licensed under the MIT License. See the `LICENSE` file for full details.
+
+SPDX-License-Identifier: MIT
