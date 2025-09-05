@@ -1,4 +1,6 @@
-# dot - The Data Orchestration Tool
+ # The Data Orchestration Tool for dbt (dot-for-dbt)
+
+`dot` is a lightweight companion CLI for dbt that lets you run any dbt command for an optional named context and an exact git commit/ref using the shorthand `<context?>@<ref>`. Adding `@<ref>` builds that historical version into a schema automatically suffixed with the commit’s short hash (e.g. `analytics_a1b2c3d4`) so your current schemas stay untouched. This enables reproducible historical builds, safe experimentation, side‑by‑side diffing, and confident migration or release validation.
 
 ## CLI Usage
 
