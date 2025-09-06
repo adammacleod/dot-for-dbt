@@ -4,8 +4,12 @@ import json
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 
-from .git import create_worktree, get_repo_path, get_commit_hash_from_gitref
+from . import logging
+from .logging import get_logger
 from .profiles import write_isolated_profiles_yml
+from .git import create_worktree, get_repo_path, get_commit_hash_from_gitref
+
+logger = get_logger("dot.dot")
 
 # Common dbt CLI arguments used across subcommands.
 COMMON_DBT_ARGS = [
@@ -114,7 +118,8 @@ def dbt_command(
     vars_yml_path: Path,
     active_context: Optional[str],
     passthrough_args: Optional[list[str]] = None,
-    gitref: Optional[str] = None
+    gitref: Optional[str] = None,
+    log_level: int = logging.INFO,
 ) -> list[str]:
     """
     Construct a dbt CLI command as a list of arguments.
@@ -210,6 +215,17 @@ def dbt_command(
         dbt_command_name, 
         merged_context, 
         passthrough_args
+    )
+
+    logger.log(
+        log_level, 
+        f"[bold]dbt_project_path:[/] {isolated_dbt_project_path if gitref else dbt_project_path}"
+    )
+    logger.debug("dbt Command Context:")
+    logger.debug(json.dumps(merged_context, indent=2))
+    logger.log(
+        log_level,
+        f"[bold]dbt command:[/] [green]{' '.join(dbt_command)}[/]"
     )
 
     return dbt_command

@@ -3,9 +3,16 @@
 import sys
 import argparse
 import subprocess
-from dot import dot
+
 from pathlib import Path
+
+from dot import dot, __version__
 from .git import get_repo_path
+
+from . import logging
+from .logging import get_logger
+
+logger = get_logger('dot.cli')
 
 
 def parse_args() -> tuple[argparse.Namespace, list[str]]:
@@ -94,24 +101,24 @@ def enforce_dot_gitignore(dbt_project_path: Path) -> None:
                     dot_entry_present = True
                     break
     else:
-        print(f"Error! No .gitignore found in the git repository root ({repo_path}). Please create one and add '.dot/' to it.", file=sys.stderr)
+        logger.error(f"No .gitignore found in the git repository root ({repo_path}). Please create one and add '.dot/' to it.")
         sys.exit(1)
 
     if not dot_entry_present:
-        print("\033[1;33mWARNING! dot can potentially put sensitive information into the .dot folder within your repository.\033[0m")
-        print(
-            "\nIt is very important that this folder is *never* committed to git, "
-            "as it may contain secrets or other sensitive information. Given this,"
-            " dot requires that the .dot/ folder is ignored in your .gitignore file."
+        logger.warning("[bold red]WARNING: dot can potentially put sensitive information into the .dot folder within your repository.[/]")
+        logger.warning(
+            "It is very important that this folder is [bold]never[/] committed to git, "
+            "therefore, [bold]dot[/] requires that the [italic].dot/[/] folder is "
+            "ignored in your .gitignore file."
         )
-        print("\nNote: You can skip this check with the --no-gitignore-check flag, but this is not recommended for general use.")
-        response = input("\nWould you like to add '.dot/' to your .gitignore now? [y/N]: ").strip().lower()
+        logger.warning("Note: You can skip this check with the --no-gitignore-check flag, but this is not recommended for general use.")
+        response = input("         Would you like to add '.dot/' to your .gitignore now? [y/N]:").strip().lower()
         if response == "y":
             with open(gitignore_path, "a", encoding="utf-8") as f:
                 f.write("\n.dot/\n")
-            print("Added '.dot/' to .gitignore.")
+            logger.warning("Added '.dot/' to .gitignore.")
         else:
-            print("\033[1;31m\nRefusing to run: '.dot/' must be ignored in .gitignore for dot to run.\033[0m")
+            logger.error("[yellow]Refusing to run: '.dot/' must be ignored in .gitignore for dot to run.[/]")
             sys.exit(1)
 
 
@@ -134,11 +141,16 @@ def app() -> int:
 
     args, passthrough_args = parse_args()
 
+    if args.verbose:
+        logging.set_level(logging.DEBUG)
+
+    logger.info(f"✨ [bold purple]dot-for-dbt ([cyan]v{__version__}[/])[/] ✨")
+
     if not args.no_gitignore_check:
         enforce_dot_gitignore(dbt_project_path)
 
     if not (dbt_project_path / "dbt_project.yml").exists():
-        print("Error! You must run dot inside of a dbt project folder!", file=sys.stderr)
+        logger.error("[yellow]Error: You must run dot inside of a dbt project folder![/]")
         sys.exit(1)
 
     try:
@@ -161,19 +173,18 @@ def app() -> int:
         )
 
     except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
+        logger.error(f"Error: {e}")
         if args.verbose:
             raise
         else:
             sys.exit(1)
 
-    print(f"dbt_project_path: {dbt_project_path}")
-    print("\033[1;32m\033[1m" + " ".join(dbt_command) + "\033[0m")
 
     if args.dry_run:
         return 0
 
     try:
+        logger.info(f"[purple]🚀  Spawning dbt 🚀[/]")
         result = subprocess.run(
             dbt_command,
             check=True

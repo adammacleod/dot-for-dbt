@@ -26,6 +26,7 @@ classifiers = [
 dependencies = [
     "pyyaml>=6.0.2",
     "pygit2>=1.14.1",
+    "rich>=13.0.0",
 ]
 
 [project.scripts]

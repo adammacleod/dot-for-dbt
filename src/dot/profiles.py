@@ -1,7 +1,11 @@
 import yaml
 import subprocess
 from pathlib import Path
-from . import dot
+
+from . import dot, logging
+from .logging import get_logger
+
+logger = get_logger("dot.dot")
 
 
 def write_isolated_profiles_yml(
@@ -112,12 +116,14 @@ def _profiles_yml_path(
     # command line args > user_vars.yml > vars.yml > dbt_project.yml.
 
     # Use dot.dbt_command to run dbt debug and capture output
+    logger.debug("Detecting profiles.yml location with `dbt debug`:")
     dbt_command = dot.dbt_command(
         dbt_command_name="debug",
         dbt_project_path=dbt_project_path,
         vars_yml_path=dbt_project_path / "vars.yml",
         active_context=active_context,
-        passthrough_args=['--config-dir']
+        passthrough_args=['--config-dir'],
+        log_level=logging.DEBUG,
     )
 
     result = subprocess.run(

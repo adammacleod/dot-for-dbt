@@ -62,13 +62,14 @@ def run_cli_in_dir(tmp_path, gitignore_content=None, expect_exit_code=0, input_r
         os.chdir(old_cwd)
     return exit_code, stdout.getvalue(), stderr.getvalue()
 
-def test_cli_refuses_without_gitignore(tmp_path):
+def test_cli_refuses_without_gitignore(tmp_path, caplog):
     # .gitignore missing, should fail
     gitignore_path = tmp_path / ".gitignore"
     if gitignore_path.exists():
         gitignore_path.unlink()
-    exit_code, stdout, stderr = run_cli_in_dir(tmp_path, gitignore_content=None)
-    assert "No .gitignore found in the git repository root" in stderr
+    with caplog.at_level("ERROR"):
+        exit_code, stdout, stderr = run_cli_in_dir(tmp_path, gitignore_content=None)
+        assert any("No .gitignore found in the git repository root" in message for message in caplog.messages)
 
 def test_cli_bypass_gitignore_check(tmp_path):
     gitignore_path = tmp_path / ".gitignore"
