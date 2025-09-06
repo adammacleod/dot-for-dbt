@@ -114,6 +114,12 @@ git tag -a vX.Y.Z -m "vX.Y.Z"
 
 ### 3. Build Artifacts
 
+Before building, remove old files from the `dist/` directory to avoid publishing outdated releases:
+
+```powershell
+Remove-Item dist\*
+```
+
 Use isolated resolution (disable sources) to ensure reproducibility:
 
 ```bash
