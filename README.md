@@ -56,7 +56,7 @@ dot run dev@feature/my-branch
 Basic usage:
 
 ```sh
-dot <dbt_command> <context>
+dot <dbt_command> <context> [--dry-run] [--no-gitignore-check]
 ```
 
 - `<dbt_command>` is any supported dbt command (e.g., build, run, test).
@@ -75,6 +75,23 @@ dot <dbt_command> @<gitref or commit>
 ```
 
 This will check out the specified commit in a git worktree, generate a dedicated `profiles.yml`, and build into `yourschema_<short git hash>`. This enables reproducible, isolated builds for any point in your repository history.
+
+## .gitignore Requirement
+
+The `.dot` directory contains build artifacts and must be ignored by git. By default, the CLI enforces this by checking for a `.dot/` entry in your `.gitignore` file before running any commands. If missing, you will be prompted to add it automatically. The CLI will refuse to run if `.dot/` is not ignored.
+
+To bypass this enforcement (not recommended for normal use), use the `--no-gitignore-check` flag:
+
+```
+dot build --no-gitignore-check
+```
+
+To ensure correct setup, add the following line to your `.gitignore`:
+
+```
+.dot/
+```
+
 
 ## vars.yml Behavior
 

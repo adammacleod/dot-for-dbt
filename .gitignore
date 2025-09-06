@@ -13,3 +13,5 @@ pypi_token.md
 # DuckDB
 *.duckdb
 *.duckdb.wal
+
+.dot/

@@ -5,9 +5,7 @@ import argparse
 import subprocess
 from dot import dot
 from pathlib import Path
-from .git import create_worktree
-from pygit2 import Repository, discover_repository
-from .profiles import write_isolated_profiles_yml
+from .git import get_repo_path
 
 
 def parse_args() -> tuple[argparse.Namespace, list[str]]:
@@ -15,8 +13,8 @@ def parse_args() -> tuple[argparse.Namespace, list[str]]:
     Parse command-line arguments and separate passthrough args.
 
     Returns:
-        argparse.Namespace: Parsed arguments.
-        List[str]: Passthrough arguments after '--'.
+        Tuple[argparse.Namespace, List[str]]: A tuple containing the parsed arguments
+        as an argparse.Namespace and a list of passthrough arguments after '--'.
     """
 
     argv = sys.argv[1:]
@@ -41,7 +39,14 @@ def parse_args() -> tuple[argparse.Namespace, list[str]]:
     parser.add_argument(
         "--dry-run",
         action="store_true",
+        default=False,
         help="Print the dbt command that would run, but do not execute it"
+    )
+    parser.add_argument(
+        "--no-gitignore-check",
+        action="store_true",
+        default=False,
+        help="Bypass .gitignore enforcement for the .dot/ directory"
     )
     allowed_dbt_commands = [
         "build", "clean", "clone", "compile", "debug", "deps", "docs", "init",
@@ -62,19 +67,78 @@ def parse_args() -> tuple[argparse.Namespace, list[str]]:
     return args, passthrough_args
 
 
+def enforce_dot_gitignore(dbt_project_path: Path) -> None:
+    """
+    Ensures that the .dot/ directory is ignored in the git repository's .gitignore file.
+
+    Args:
+        dbt_project_path (Path): Path to the dbt project directory. 
+                                 Used to locate the git repository root.
+
+    Returns:
+        None. Exits the process if .gitignore is missing or enforcement fails.
+
+    Side Effects:
+        May prompt the user to insert '.dot/' into .gitignore and modify the file.
+        Exits the process with error if enforcement fails.
+    """
+    repo_path = get_repo_path(dbt_project_path)
+    gitignore_path = repo_path / ".gitignore"
+    dot_entry_present = False
+
+    if gitignore_path.exists():
+        with open(gitignore_path, "r", encoding="utf-8") as f:
+            lines = [line.strip() for line in f if line.strip()]
+            for entry in lines:
+                if entry == ".dot" or entry == ".dot/":
+                    dot_entry_present = True
+                    break
+    else:
+        print(f"Error! No .gitignore found in the git repository root ({repo_path}). Please create one and add '.dot/' to it.", file=sys.stderr)
+        sys.exit(1)
+
+    if not dot_entry_present:
+        print("\033[1;33mWARNING! dot can potentially put sensitive information into the .dot folder within your repository.\033[0m")
+        print(
+            "\nIt is very important that this folder is *never* committed to git, "
+            "as it may contain secrets or other sensitive information. Given this,"
+            " dot requires that the .dot/ folder is ignored in your .gitignore file."
+        )
+        print("\nNote: You can skip this check with the --no-gitignore-check flag, but this is not recommended for general use.")
+        response = input("\nWould you like to add '.dot/' to your .gitignore now? [y/N]: ").strip().lower()
+        if response == "y":
+            with open(gitignore_path, "a", encoding="utf-8") as f:
+                f.write("\n.dot/\n")
+            print("Added '.dot/' to .gitignore.")
+        else:
+            print("\033[1;31m\nRefusing to run: '.dot/' must be ignored in .gitignore for dot to run.\033[0m")
+            sys.exit(1)
+
+
 def app() -> int:
     """
     Main entry point for the CLI application.
 
-    Parses command-line arguments, constructs the dbt command using context from vars.yml,
-    prints the command to the terminal, and executes it unless --dry-run is specified.
+    Returns:
+        int: The exit code from the dbt command or error handling.
+
+    Side Effects:
+        - Parses command-line arguments.
+        - Enforces .gitignore hygiene for .dot/ directory.
+        - Constructs and prints the dbt command.
+        - Executes the dbt command unless --dry-run is specified.
+        - Handles errors and exits the process as needed.
     """
-    args, passthrough_args = parse_args()
 
     dbt_project_path = Path.cwd()
 
+    args, passthrough_args = parse_args()
+
+    if not args.no_gitignore_check:
+        enforce_dot_gitignore(dbt_project_path)
+
     if not (dbt_project_path / "dbt_project.yml").exists():
-        print("Error! You must run dot inside of a dbt project folder!")
+        print("Error! You must run dot inside of a dbt project folder!", file=sys.stderr)
         sys.exit(1)
 
     try:
@@ -97,7 +161,7 @@ def app() -> int:
         )
 
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error: {e}", file=sys.stderr)
         if args.verbose:
             raise
         else:

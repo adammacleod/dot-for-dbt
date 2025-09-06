@@ -50,6 +50,7 @@ dot build prod
 
 ## Contributing Guidelines
 
+- Ensure your `.gitignore` file contains an entry for `.dot/` in the project root. The CLI enforces this and will refuse to run if `.dot/` is not ignored.
 - Open an issue to discuss any major changes before submitting a pull request.
 - Follow modern Python tooling and conventions (e.g., [uv](https://github.com/astral-sh/uv)).
 - Keep the codebase clean and well-documented.
