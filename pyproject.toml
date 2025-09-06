@@ -1,6 +1,6 @@
 [project]
 name = "dot-for-dbt"
-version = "0.1.1"
+version = "0.2.0"
 description = "dot - the Data Orchestration Tool (for dbt)"
 readme = "README.md"
 requires-python = ">=3.12"

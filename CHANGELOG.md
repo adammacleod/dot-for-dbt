@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-09-07
+
+### Added
+- Integrated rich-based logging for improved CLI output and diagnostics.
+- Enforced .gitignore checks to ensure `.dot/` directory is ignored before running commands.
+
 ### Changed
 - Adopted uv-native release workflow (replacing `twine upload` with `uv publish`).
 - Added TestPyPI index configuration to `pyproject.toml` (`[[tool.uv.index]]` with publish-url).
