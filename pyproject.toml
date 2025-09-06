@@ -33,8 +33,7 @@ dot = "dot.cli:app"
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.0.0",
-    "twine>=5.0.0"
+    "pytest>=8.0.0"
 ]
 
 [project.urls]
@@ -59,3 +58,9 @@ include = [
   "development_plans",
   "example_dbt_project",
 ]
+
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+publish-url = "https://test.pypi.org/legacy/"
+explicit = true

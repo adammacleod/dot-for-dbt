@@ -6,7 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
-- Placeholder for upcoming changes.
+### Changed
+- Adopted uv-native release workflow (replacing `twine upload` with `uv publish`).
+- Added TestPyPI index configuration to `pyproject.toml` (`[[tool.uv.index]]` with publish-url).
+- Removed `twine` from dev optional dependencies.
+
+### Documentation
+- Updated `CONTRIBUTING.md` with uv-only release process (version bump via `uv version`, `uv build --no-sources`, `uv publish`, TestPyPI + production steps).
+- Updated `README.md` Packaging & Release Summary to reflect uv workflow.
+- Added release token environment variable guidance (`UV_PUBLISH_TOKEN`).
+
+### Notes
+- Future releases should use `uv version --bump` for semver changes.
+- Trusted Publisher (PyPI) can be configured later for CI automation.
 
 ## [0.1.1] - 2025-09-05
 First public PyPI release of `dot-for-dbt` (renamed from internal `dot`).
