@@ -5,6 +5,7 @@ build/
 dist/
 wheels/
 *.egg-info
+pypi_token.md
 
 # Virtual environments
 .venv

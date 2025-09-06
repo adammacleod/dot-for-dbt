@@ -1,10 +1,12 @@
 [project]
-name = "dot"
+name = "dot-for-dbt"
 version = "0.1.1"
 description = "dot - the Data Orchestration Tool (for dbt)"
 readme = "README.md"
 requires-python = ">=3.12"
 license = { file = "LICENSE" }
+authors = [{ name = "Adam MacLeod" }]
+keywords = ["dbt", "data", "orchestration", "cli", "analytics", "reproducibility"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: MIT License",
@@ -28,3 +30,32 @@ dependencies = [
 
 [project.scripts]
 dot = "dot.cli:app"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "twine>=5.0.0"
+]
+
+[project.urls]
+Homepage = "https://github.com/adammacleod/dot-for-dbt"
+Repository = "https://github.com/adammacleod/dot-for-dbt"
+Issues = "https://github.com/adammacleod/dot-for-dbt/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dot"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "src/dot",
+  "README.md",
+  "LICENSE",
+  "CONTRIBUTING.md",
+  "adr",
+  "development_plans",
+  "example_dbt_project",
+]

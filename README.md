@@ -1,6 +1,55 @@
- # The Data Orchestration Tool for dbt (dot-for-dbt)
+# The Data Orchestration Tool for dbt (dot-for-dbt)
 
 `dot` is a lightweight companion CLI for dbt that lets you run any dbt command for an optional named context and an exact git commit/ref using the shorthand `<context?>@<ref>`. Adding `@<ref>` builds that historical version into a schema automatically suffixed with the commit’s short hash (e.g. `analytics_a1b2c3d4`) so your current schemas stay untouched. This enables reproducible historical builds, safe experimentation, side‑by‑side diffing, and confident migration or release validation.
+
+## Installation
+
+Requires Python >= 3.12 (resolved automatically by `uv`).
+
+Using `uv` (recommended persistent install):
+```bash
+uv tool install dot-for-dbt
+dot --help
+```
+
+Upgrade:
+```bash
+uv tool upgrade dot-for-dbt
+```
+
+Ephemeral run (no global install):
+```bash
+uvx dot-for-dbt --help
+```
+
+Pin version:
+```bash
+uv tool install dot-for-dbt==0.1.1
+uvx dot-for-dbt==0.1.1 --help
+```
+
+Via `pip` (alternative):
+```bash
+pip install dot-for-dbt
+```
+
+Uninstall:
+```bash
+uv tool uninstall dot-for-dbt
+```
+
+## Quick Example
+
+```bash
+# Build current project using default context
+dot build
+
+# Build historical commit (isolated schema)
+dot build @abc1234
+
+# Build specific context at a ref
+dot run dev@feature/my-branch
+```
 
 ## CLI Usage
 
@@ -208,6 +257,10 @@ For architectural rationale see: [ADR 0001: Isolated Builds](adr/0001-isolated-b
 Architectural decisions are documented in the [adr/](adr/) directory.
 
 - [ADR 0001: Isolated Builds](adr/0001-isolated-builds.md)
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for released versions.
 
 ## License
 
