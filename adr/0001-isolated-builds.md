@@ -15,11 +15,11 @@ Using the full 40‑character commit hash in directory names unnecessarily incre
 We will use the short commit hash (as returned by `git rev-parse --short <ref>`) as the canonical on-disk identifier for isolated build directories and related resources. The git CLI alone is sufficient for ref resolution and abbreviation; no additional git bindings are required.
 
 - Directory layout (per commit + context):
-  - `.dot/isolated_builds/<short_hash>/worktree/` — clean checkout (created via `git worktree add`) at the resolved full commit.
-  - `.dot/isolated_builds/<short_hash>/commit` — file containing the full 40‑character commit hash.
-  - `.dot/isolated_builds/<short_hash>/<context>/profiles.yml` — generated profiles file targeting schema `schema_<short_hash>`.
-  - `.dot/isolated_builds/<short_hash>/<context>/target/` — dbt `--target-path`.
-  - `.dot/isolated_builds/<short_hash>/<context>/logs/` — dbt `--log-path`.
+  - `.dot/build/<short_hash>/worktree/` — clean checkout (created via `git worktree add`) at the resolved full commit.
+  - `.dot/build/<short_hash>/commit` — file containing the full 40‑character commit hash.
+  - `.dot/build/<short_hash>/<context>/profiles.yml` — generated profiles file targeting schema `schema_<short_hash>`.
+  - `.dot/build/<short_hash>/<context>/target/` — dbt `--target-path`.
+  - `.dot/build/<short_hash>/<context>/logs/` — dbt `--log-path`.
 
 - Ref & Hash Handling:
   - User supplies a git ref (branch, tag, or hash).
@@ -35,12 +35,12 @@ We will use the short commit hash (as returned by `git rev-parse --short <ref>`)
 
 - Implementation:
   - Use only core git CLI commands: `git rev-parse`, `git worktree add`, and `git worktree remove` (or manual cleanup).
-  - Write the full 40-character hash to `.dot/isolated_builds/<short_hash>/commit` for audit and reverse mapping.
+  - Write the full 40-character hash to `.dot/build/<short_hash>/commit` for audit and reverse mapping.
 
 **Example structure:**
 ```
 .dot/
-  isolated_builds/
+  build/
     3fa12c9/                # short hash identifier
       worktree/             # clean checkout at full commit
       commit                # full 40-char commit hash

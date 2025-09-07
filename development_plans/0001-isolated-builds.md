@@ -12,7 +12,7 @@ The full 40‑character hash is still captured for audit and reverse mapping in 
 
 - Isolate every build in a clean worktree tied to an immutable commit.
 - Use `git rev-parse --short <ref>` to derive `<short_hash>` (auto-expands when ambiguous).
-- Use `<short_hash>` as the filesystem key: `.dot/isolated_builds/<short_hash>/`.
+- Use `<short_hash>` as the filesystem key: `.dot/build/<short_hash>/`.
 - Name schemas `schema_<short_hash>`.
 - Support multiple contexts (e.g. dev, prod) per commit concurrently.
 - Keep operations minimal: depend only on standard git CLI tooling.
@@ -23,7 +23,7 @@ The full 40‑character hash is still captured for audit and reverse mapping in 
 
 ```
 .dot/
-  isolated_builds/
+  build/
     <short_hash>/
       worktree/                # Clean checkout at full commit
       <context>/               # e.g. dev, prod
@@ -41,7 +41,7 @@ The full 40‑character hash is still captured for audit and reverse mapping in 
    - Trust git’s abbreviation expansion for uniqueness.
 
 2. Worktree Creation
-   - Use `git worktree add --detach .dot/isolated_builds/<short_hash>/worktree <full_hash>`.
+   - Use `git worktree add --detach .dot/build/<short_hash>/worktree <full_hash>`.
    - Skip creation if directory already exists and is valid.
    - Removal (future pruning): `git worktree remove` or manual cleanup after ensuring no locks.
 
@@ -49,12 +49,12 @@ The full 40‑character hash is still captured for audit and reverse mapping in 
    - No custom logic. If ambiguity exists git returns a longer abbreviation automatically; this yields a new isolated build directory.
 
 4. Profiles Generation
-   - Generate `.dot/isolated_builds/<short_hash>/<context>/profiles.yml` with schema `schema_<short_hash>`.
+   - Generate `.dot/build/<short_hash>/<context>/profiles.yml` with schema `schema_<short_hash>`.
    - Keep logic centralized (e.g. in profiles module/function).
 
 5. Artifact Isolation
-   - `--target-path` → `.dot/isolated_builds/<short_hash>/<context>/target`
-   - `--log-path` → `.dot/isolated_builds/<short_hash>/<context>/logs`
+   - `--target-path` → `.dot/build/<short_hash>/<context>/target`
+   - `--log-path` → `.dot/build/<short_hash>/<context>/logs`
 
 6. CLI Command Flow (e.g. `dc run dev@<ref>`)
    - Derive `<short_hash>` + full hash.
@@ -63,7 +63,7 @@ The full 40‑character hash is still captured for audit and reverse mapping in 
    - Invoke dbt with isolated paths.
 
 7. Commit Metadata
-   - Store the full 40-char hash in `.dot/isolated_builds/<short_hash>/commit` (mandatory for audit and reverse mapping).
+   - Store the full 40-char hash in `.dot/build/<short_hash>/commit` (mandatory for audit and reverse mapping).
 
 8. Cleanup (Future)
    - Provide command to prune by age, count, or unused contexts.

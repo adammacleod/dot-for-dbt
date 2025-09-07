@@ -92,7 +92,6 @@ To ensure correct setup, add the following line to your `.gitignore`:
 .dot/
 ```
 
-
 ## vars.yml Behavior
 
 - `vars.yml` is optional. If it does not exist in your working directory, dot will proceed with default settings and no context-based variables.
@@ -145,11 +144,11 @@ dot build prod@main
    - `git rev-parse <gitref>`
    - `git rev-parse --short <gitref>`
 
-2. Construct: `.dot/isolated_builds/<short_hash>/`
+2. Construct: `.dot/build/<short_hash>/`
 
 3. Create (or reuse) a clean git worktree at:
    ```
-   .dot/isolated_builds/<short_hash>/worktree/
+   .dot/build/<short_hash>/worktree/
    ```
 
 4. Locate the dbt project inside that worktree matching the original project path.
@@ -160,19 +159,19 @@ dot build prod@main
 
 7. Write an isolated `profiles.yml` to:
    ```
-   .dot/isolated_builds/<short_hash>/<context>/profiles.yml
+   .dot/build/<short_hash>/<context>/profiles.yml
    ```
    with the target schema updated to `<schema>_<short_hash>`.
 
 8. Set dbt CLI args so that:
    - `--project-dir` points at the isolated worktree project
-   - `--profiles-dir` points at `.dot/isolated_builds/<short_hash>/<context>`
-   - `--target-path` is `.dot/isolated_builds/<short_hash>/<context>/target`
-   - `--log-path` is `.dot/isolated_builds/<short_hash>/<context>/logs`
+   - `--profiles-dir` points at `.dot/build/<short_hash>/<context>`
+   - `--target-path` is `.dot/build/<short_hash>/<context>/target`
+   - `--log-path` is `.dot/build/<short_hash>/<context>/logs`
 
 9. Write the full hash to:
    ```
-   .dot/isolated_builds/<short_hash>/commit
+   .dot/build/<short_hash>/commit
    ```
 
 10. Execute the dbt command.
@@ -197,7 +196,7 @@ Example layout for an isolated build:
 
 ```
 .dot/
-  isolated_builds/
+  build/
     <short_hash>/           # Directory keyed by abbreviated hash
       worktree/             # Clean checkout at that commit
       commit                # File containing full 40-char commit hash
@@ -260,7 +259,7 @@ dot run dev@main -- --select my_model+
 Currently there is no automatic cleanup. To reclaim space:
 
 - Drop old schemas manually from your warehouse
-- Remove stale directories under `.dot/isolated_builds/`
+- Remove stale directories under `.dot/build/`
 
 Automatic management of old build artifacts and schemas is planned for a future release. Please let me know if this would be important to you!
 
@@ -269,8 +268,8 @@ Automatic management of old build artifacts and schemas is planned for a future 
 | Symptom | Cause | Action |
 |---------|-------|--------|
 | Error: Profile not found | Active context or profile missing | Verify `profiles.yml` and context name |
-| Commit not found | Bad ref | Run `git show <ref>` to validate |
-| Schema clutter | Many builds kept | Periodically prune `.dot/isolated_builds` and drop old schemas |
+| Commit not found | Bad ref | Run `git show<ref>` to validate |
+| Schema clutter | Many builds kept | Periodically prune `.dot/build` and drop old schemas |
 | Wrong default context | `context.default` unset or unexpected | Set `default` under `context` in `vars.yml` |
 
 ### Reference

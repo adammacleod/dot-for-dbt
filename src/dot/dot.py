@@ -168,7 +168,7 @@ def dbt_command(
         repo_path = get_repo_path(dbt_project_path)
         full_commit_hash = get_full_commit_hash(repo_path, gitref)
         short_hash = get_short_commit_hash(repo_path, gitref)
-        isolated_build_path = repo_path / '.dot' / 'isolated_builds' / short_hash
+        isolated_build_path = repo_path / '.dot' / 'build' / short_hash
         
         worktree_path = isolated_build_path / 'worktree'
         # Write the full hash to commit file (idempotent)
