@@ -199,7 +199,7 @@ def dbt_command(
         # can build against this project. The isolated_environment_path contains
         # a profiles.yml for environment and commit_hash, and also the target
         # folder which contains dbt build artifacts.
-        isolated_environment_path = isolated_build_path / active_environment
+        isolated_environment_path = isolated_build_path / "env" / active_environment
 
         write_isolated_profiles_yml(
             dbt_project_path,

@@ -26,10 +26,11 @@ The full 40‑character hash is still captured for audit and reverse mapping in 
   build/
     <short_hash>/
       worktree/                # Clean checkout at full commit
-      <environment>/           # e.g. dev, prod
-        profiles.yml           # schema: schema_<short_hash>
-        target/                # dbt --target-path
-        logs/                  # dbt --log-path
+      env/                     # parent directory for environments
+        <environment>/         # e.g. dev, prod
+          profiles.yml         # schema: schema_<short_hash>
+          target/              # dbt --target-path
+          logs/                # dbt --log-path
       commit                   # file containing full 40-char hash
 ```
 
@@ -49,12 +50,12 @@ The full 40‑character hash is still captured for audit and reverse mapping in 
    - No custom logic. If ambiguity exists git returns a longer abbreviation automatically; this yields a new isolated build directory.
 
 4. Profiles Generation
-   - Generate `.dot/build/<short_hash>/<environment>/profiles.yml` with schema `schema_<short_hash>`.
+   - Generate `.dot/build/<short_hash>/env/<environment>/profiles.yml` with schema `schema_<short_hash>`.
    - Keep logic centralized (e.g. in profiles module/function).
 
 5. Artifact Isolation
-   - `--target-path` → `.dot/build/<short_hash>/<environment>/target`
-   - `--log-path` → `.dot/build/<short_hash>/<environment>/logs`
+   - `--target-path` → `.dot/build/<short_hash>/env/<environment>/target`
+   - `--log-path` → `.dot/build/<short_hash>/env/<environment>/logs`
 
 6. CLI Command Flow (e.g. `dot run dev@<ref>`)
    - Derive `<short_hash>` + full hash.

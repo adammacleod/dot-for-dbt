@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Changed
 - Isolated build directory key now uses the git short hash (`git rev-parse --short <ref>`) instead of the full 40-character hash (mitigates Windows path length issues).
-- Directory structure updated to `.dot/build/<short_hash>/worktree/`, `<environment>/` (`profiles.yml`, `target/`, `logs/`) plus a `commit` metadata file.
+- Directory structure updated to `.dot/build/<short_hash>/worktree/`, `env/<environment>/` (`profiles.yml`, `target/`, `logs/`) plus a `commit` metadata file.
 - On-disk directory renamed from `.dot/isolated_builds/` to `.dot/build/` (documentation updated; ADR & development plan filenames unchanged for historical continuity).
 - BREAKING: Renamed vars.yml top-level key `context` to `environment` and CLI positional argument `<context>` to `<environment>` (no backward compatibility retained).
 

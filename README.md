@@ -175,14 +175,14 @@ dot build prod@main
 6. Read the selected profile + target (environment name).
 7. Write an isolated `profiles.yml` to:
    ```
-   .dot/build/<short_hash>/<environment>/profiles.yml
+   .dot/build/<short_hash>/env/<environment>/profiles.yml
    ```
    with the target schema updated to `<schema>_<short_hash>`.
 8. Set dbt CLI args so that:
    - `--project-dir` points at the isolated worktree project
-   - `--profiles-dir` points at `.dot/build/<short_hash>/<environment>`
-   - `--target-path` is `.dot/build/<short_hash>/<environment>/target`
-   - `--log-path` is `.dot/build/<short_hash>/<environment>/logs`
+   - `--profiles-dir` points at `.dot/build/<short_hash>/env/<environment>`
+   - `--target-path` is `.dot/build/<short_hash>/env/<environment>/target`
+   - `--log-path` is `.dot/build/<short_hash>/env/<environment>/logs`
 9. Write the full hash to:
    ```
    .dot/build/<short_hash>/commit
@@ -213,17 +213,18 @@ Example layout for an isolated build:
     <short_hash>/           # Directory keyed by abbreviated hash
       worktree/             # Clean checkout at that commit
       commit                # File containing full 40-char commit hash
-      dev/                  # One folder per environment used with this commit
-        profiles.yml        # Auto-generated, schema rewritten with _<short_hash>
-        target/             # dbt artifacts (manifest, run results, etc.)
-        logs/               # dbt logs for this isolated run
-      prod/
-        profiles.yml
-        target/
-        logs/
+      env/                  # Parent directory for all environment-specific artifacts
+        dev/
+          profiles.yml      # Auto-generated, schema rewritten with _<short_hash>
+          target/           # dbt artifacts (manifest, run results, etc.)
+          logs/             # dbt logs for this isolated run
+        prod/
+          profiles.yml
+          target/
+          logs/
 ```
 
-If you build multiple environments (`dev`, `prod`) for the same commit, each gets its own environment subdirectory.
+If you build multiple environments (`dev`, `prod`) for the same commit, each gets its own environment subdirectory under `env/`.
 
 ### Examples
 

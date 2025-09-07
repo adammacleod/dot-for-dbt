@@ -17,9 +17,9 @@ We will use the short commit hash (as returned by `git rev-parse --short <ref>`)
 - Directory layout (per commit + environment):
   - `.dot/build/<short_hash>/worktree/` — clean checkout (created via `git worktree add`) at the resolved full commit.
   - `.dot/build/<short_hash>/commit` — file containing the full 40‑character commit hash.
-  - `.dot/build/<short_hash>/<environment>/profiles.yml` — generated profiles file targeting schema `schema_<short_hash>`.
-  - `.dot/build/<short_hash>/<environment>/target/` — dbt `--target-path`.
-  - `.dot/build/<short_hash>/<environment>/logs/` — dbt `--log-path`.
+  - `.dot/build/<short_hash>/env/<environment>/profiles.yml` — generated profiles file targeting schema `schema_<short_hash>`.
+  - `.dot/build/<short_hash>/env/<environment>/target/` — dbt `--target-path`.
+  - `.dot/build/<short_hash>/env/<environment>/logs/` — dbt `--log-path`.
 
 - Ref & Hash Handling:
   - User supplies a git ref (branch, tag, or hash).
@@ -44,14 +44,15 @@ We will use the short commit hash (as returned by `git rev-parse --short <ref>`)
     3fa12c9/                # short hash identifier
       worktree/             # clean checkout at full commit
       commit                # full 40-char commit hash
-      dev/
-        profiles.yml        # schema: schema_3fa12c9
-        target/
-        logs/
-      prod/
-        profiles.yml
-        target/
-        logs/
+      env/                  # parent directory for environments
+        dev/
+          profiles.yml      # schema: schema_3fa12c9
+          target/
+          logs/
+        prod/
+          profiles.yml
+          target/
+          logs/
 ```
 
 ## Consequences
