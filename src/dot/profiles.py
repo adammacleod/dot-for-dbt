@@ -12,7 +12,7 @@ def write_isolated_profiles_yml(
     dbt_project_path: Path,
     isolated_dbt_project_path: Path,
     isolated_profile_path: Path,
-    commit_hash: str,
+    short_hash: str,
     active_context: str,
 ) -> None:
     """
@@ -22,10 +22,9 @@ def write_isolated_profiles_yml(
         dbt_project_path (Path): The path to the original dbt project directory.
         isolated_dbt_project_path (Path): The path to the isolated dbt project directory.
         isolated_profile_path (Path): Path where profiles.yml will be written.
-        commit_hash (str): The full commit hash.
+        short_hash (str): The short commit hash.
         active_context (str): The dbt context/target name to use.
     """
-    short_hash = commit_hash[:8]
 
     # TODO: The user may pass a profile name on the command line. We need to source 
     # the profile name from here rather than dbt_project.yml if it is set!

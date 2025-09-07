@@ -141,34 +141,41 @@ dot build prod@main
 
 ### What Happens Internally
 
-1. Resolve the supplied `<gitref>` to a full commit hash.
+1. Resolve `<gitref>` to the full 40‑char commit hash and the abbreviated short hash via:
+   - `git rev-parse <gitref>`
+   - `git rev-parse --short <gitref>`
 
-2. Construct: `.dot/isolated_builds/<commit_hash>/`
+2. Construct: `.dot/isolated_builds/<short_hash>/`
 
-3. Create (or reuse if it already exists) a clean git worktree at:
+3. Create (or reuse) a clean git worktree at:
    ```
-   .dot/isolated_builds/<commit_hash>/worktree/
+   .dot/isolated_builds/<short_hash>/worktree/
    ```
 
-4. Locate the dbt project inside that worktree matching your original working project path.
+4. Locate the dbt project inside that worktree matching the original project path.
 
-5. Detect the active `profiles.yml` location by invoking `dbt debug --config-dir`.
+5. Detect the active `profiles.yml` location (`dbt debug --config-dir`).
 
-6. Read the selected profile + target (your context name).
+6. Read the selected profile + target (context name).
 
 7. Write an isolated `profiles.yml` to:
    ```
-   .dot/isolated_builds/<commit_hash>/<context>/profiles.yml
+   .dot/isolated_builds/<short_hash>/<context>/profiles.yml
    ```
-   with the target schema updated to <schema>_<commit_hash>.
+   with the target schema updated to `<schema>_<short_hash>`.
 
 8. Set dbt CLI args so that:
    - `--project-dir` points at the isolated worktree project
-   - `--profiles-dir` points at `.dot/isolated_builds/<commit_hash>/<context>`
-   - `--target-path` is `.dot/isolated_builds/<commit_hash>/<context>/target`
-   - `--log-path` is `.dot/isolated_builds/<commit_hash>/<context>/logs`
+   - `--profiles-dir` points at `.dot/isolated_builds/<short_hash>/<context>`
+   - `--target-path` is `.dot/isolated_builds/<short_hash>/<context>/target`
+   - `--log-path` is `.dot/isolated_builds/<short_hash>/<context>/logs`
 
-9. Execute your dbt command.
+9. Write the full hash to:
+   ```
+   .dot/isolated_builds/<short_hash>/commit
+   ```
+
+10. Execute the dbt command.
 
 ### Schema Naming
 
@@ -178,7 +185,7 @@ The target schema becomes:
 <original_schema>_<short_hash>
 ```
 
-Where `<short_hash>` is the first 8 characters of the full commit hash. For example, if your original target schema is `analytics` and the commit is `6b777b8c94771a74...`, the isolated schema is:
+Where `<short_hash>` is the abbreviated commit hash reported by `git rev-parse --short <ref>` (length chosen automatically by git to avoid ambiguity). For example, if your original target schema is `analytics` and the short hash is `6b777b8c`, the isolated schema is:
 
 ```
 analytics_6b777b8c
@@ -191,8 +198,9 @@ Example layout for an isolated build:
 ```
 .dot/
   isolated_builds/
-    <full_commit_hash>/
+    <short_hash>/           # Directory keyed by abbreviated hash
       worktree/             # Clean checkout at that commit
+      commit                # File containing full 40-char commit hash
       dev/                  # One folder per context used with this commit
         profiles.yml        # Auto-generated, schema rewritten with _<short_hash>
         target/             # dbt artifacts (manifest, run results, etc.)
@@ -211,7 +219,7 @@ Diff models between current development and a feature branch:
 ```sh
 dot build dev
 dot build dev@feature/new-metric
-# Compare artifacts or query both schemas: analytics vs analytics_<shot_hash>
+# Compare artifacts or query both schemas: analytics vs analytics_<short_hash>
 ```
 
 Test a migration before merging:

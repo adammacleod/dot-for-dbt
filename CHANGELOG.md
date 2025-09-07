@@ -6,6 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+### Changed
+- Isolated build directory key now uses the git short hash (`git rev-parse --short <ref>`) instead of the full 40-character hash (mitigates Windows path length issues).
+- Directory structure updated to `.dot/isolated_builds/<short_hash>/worktree/`, `<context>/` (`profiles.yml`, `target/`, `logs/`) plus a `commit` metadata file.
+
+### Added
+- `commit` file inside each isolated build directory containing the full 40-character commit hash for audit and reverse mapping.
+
+### Removed
+- `pygit2` dependency (all git operations now via core git CLI).
+- Custom/legacy collision handling logic (rely solely on git’s abbreviation expansion).
+
+### Documentation
+- ADR 0001 and Development Plan 0001 rewritten to reflect short-hash strategy, path length rationale, commit metadata file, and git CLI usage.
+- README / CONTRIBUTING aligned with simplified isolated build design (short hash, commit file, no pygit2).
+
+### Fixed
+- Windows subprocess test failure by replacing non-executable `["echo","mocked"]` mock with a portable Python command in `tests/test_cli_gitignore.py`.
+
+### Internal
+- Tests updated for short-hash directory scheme and mandatory commit metadata file.
+- Simplified git/ref resolution code paths and removed obsolete logic.
+
 ## [0.2.0] - 2025-09-07
 
 ### Added

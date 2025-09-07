@@ -7,7 +7,12 @@ from typing import Dict, Any, Optional, List
 from . import logging
 from .logging import get_logger
 from .profiles import write_isolated_profiles_yml
-from .git import create_worktree, get_repo_path, get_commit_hash_from_gitref
+from .git import (
+    create_worktree,
+    get_repo_path,
+    get_full_commit_hash,
+    get_short_commit_hash,
+)
 
 logger = get_logger("dot.dot")
 
@@ -129,8 +134,8 @@ def dbt_command(
     worktree.
 
     It will also make a copy of your main repositories profiles.yml, and update
-    it's configuration to write into an isolated schema labelled 
-    <schema>_<commithash>.
+    it's configuration to write into an isolated schema named
+    <schema>_<short_hash>.
 
     Args:
         dbt_command_name (str): The dbt subcommand to run (e.g., 'run', 'test').
@@ -161,15 +166,21 @@ def dbt_command(
     # Isolated build logic if gitref is provided
     if gitref:
         repo_path = get_repo_path(dbt_project_path)
-        commit_hash = get_commit_hash_from_gitref(repo_path, gitref)
-        isolated_build_path = repo_path / '.dot' / 'isolated_builds' / commit_hash
+        full_commit_hash = get_full_commit_hash(repo_path, gitref)
+        short_hash = get_short_commit_hash(repo_path, gitref)
+        isolated_build_path = repo_path / '.dot' / 'isolated_builds' / short_hash
         
         worktree_path = isolated_build_path / 'worktree'
+        # Write the full hash to commit file (idempotent)
+        commit_file = isolated_build_path / "commit"
+        if not commit_file.exists():
+            commit_file.parent.mkdir(parents=True, exist_ok=True)
+            commit_file.write_text(full_commit_hash)
 
         create_worktree(
             repo_path,
             worktree_path,
-            commit_hash
+            full_commit_hash
         )
 
         # Calculate the relative path of the dbt project inside of the repository,
@@ -199,7 +210,7 @@ def dbt_command(
             dbt_project_path,
             isolated_dbt_project_path,
             isolated_context_path,
-            commit_hash,
+            short_hash,
             active_context
         )
 

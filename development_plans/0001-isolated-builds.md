@@ -4,76 +4,105 @@ Status: Complete
 
 ## Context
 
-This plan outlines the implementation of commit-isolated schemas for dbt builds, as described in [ADR 0001: Isolated Builds](../adr/0001-isolated-builds.md). The goal is to enable reproducible, isolated dbt builds for any git commit, supporting advanced workflows such as model diffing, robust deployments, and historical analysis.
+We implement commit‑isolated dbt builds to achieve reproducibility, diffing, safe deployments, parallel environment testing, and deterministic artifact segregation. Using the full 40‑character commit hash in directory names unnecessarily inflates path length (notably on Windows when combined with nested dbt target artifacts). To mitigate path length risk while retaining traceability we key all filesystem artifacts by the unique short hash returned from `git rev-parse --short <ref>` (git auto‑expands if ambiguous).
+
+The full 40‑character hash is still captured for audit and reverse mapping in a `commit` file inside each isolated build directory. No custom collision logic is required—git’s abbreviation mechanics guarantee uniqueness at resolution time or extend the abbreviation automatically.
 
 ## Goals
 
-- Allow users to build dbt projects into schemas named after a short git commit hash (e.g., first 8 characters).
-- Accept git refs (branches, tags, etc.) and resolve them to full commit hashes.
-- Store all build artifacts (worktree, profiles.yml, target path) in a structured `.dot/<hash>/` directory.
-- Ensure builds are reproducible and isolated from the main working directory.
-- Support cleanup and management of old build artifacts.
+- Isolate every build in a clean worktree tied to an immutable commit.
+- Use `git rev-parse --short <ref>` to derive `<short_hash>` (auto-expands when ambiguous).
+- Use `<short_hash>` as the filesystem key: `.dot/isolated_builds/<short_hash>/`.
+- Name schemas `schema_<short_hash>`.
+- Support multiple contexts (e.g. dev, prod) per commit concurrently.
+- Keep operations minimal: depend only on standard git CLI tooling.
+- Rely on git auto-expanding abbreviations; no custom collision logic.
+- Provide future hooks for pruning and metadata.
 
-## Proposed Approach
+## Directory Layout
 
-1. **Ref Resolution**
-   - Use the [pygit2](https://www.pygit2.org/) Python library exclusively to resolve any git ref (branch, tag, or hash) to a commit hash.
+```
+.dot/
+  isolated_builds/
+    <short_hash>/
+      worktree/                # Clean checkout at full commit
+      <context>/               # e.g. dev, prod
+        profiles.yml           # schema: schema_<short_hash>
+        target/                # dbt --target-path
+        logs/                  # dbt --log-path
+      commit                   # file containing full 40-char hash
+```
 
-2. **Worktree Management**
-   - Use pygit2 to create a clean checkout at the resolved commit hash in `.dot/<hash>/worktree/`.
-   - Ensure worktrees are created and removed safely.
+## Approach
 
-3. **Schema Naming and Profiles**
-   - Always build into a schema named `schema_<short_hash>`, where `<short_hash>` is the first 8 characters of the commit hash.
-   - Generate a custom `.dot/<hash>/profiles.yml` targeting the correct schema.
+1. Ref Resolution & Abbreviation
+   - Run `git rev-parse --short <ref>` to get `<short_hash>`.
+   - Run `git rev-parse <ref>` to obtain the full 40‑char hash if needed (e.g. metadata file).
+   - Trust git’s abbreviation expansion for uniqueness.
 
-4. **Target Path Isolation**
-   - Use `.dot/<hash>/target/` as the dbt `--target-path` for all build outputs and manifests.
+2. Worktree Creation
+   - Use `git worktree add --detach .dot/isolated_builds/<short_hash>/worktree <full_hash>`.
+   - Skip creation if directory already exists and is valid.
+   - Removal (future pruning): `git worktree remove` or manual cleanup after ensuring no locks.
 
-5. **CLI Integration**
-   - Update or create CLI commands (e.g., `dc run dev@ref`) to orchestrate the above steps.
+3. Collision Handling
+   - No custom logic. If ambiguity exists git returns a longer abbreviation automatically; this yields a new isolated build directory.
 
-6. **Testing and Documentation**
-   - Add tests for ref resolution, worktree management, and schema isolation.
-   - Update documentation and usage examples.
-   - Reference the ADR and this plan in project docs.
+4. Profiles Generation
+   - Generate `.dot/isolated_builds/<short_hash>/<context>/profiles.yml` with schema `schema_<short_hash>`.
+   - Keep logic centralized (e.g. in profiles module/function).
 
-## Progress
+5. Artifact Isolation
+   - `--target-path` → `.dot/isolated_builds/<short_hash>/<context>/target`
+   - `--log-path` → `.dot/isolated_builds/<short_hash>/<context>/logs`
 
-- [x] Context and goals defined
-- [x] Proposed approach outlined
-- [x] ADR and development plan updated for short hash strategy
-- [x] Implement ref resolution logic using pygit2 in src/dot/git.py
-- [x] Add and update tests for ref resolution logic in tests/test_git.py
-- [x] Require repo_path as Path type for resolve_git_ref
-- [x] Move all git-related code to src/dot/git.py
-- [x] Restore TODO.md to original content
-- [x] Implement worktree management code for clean checkouts in .dot/<hash>/worktree/ (create_worktree)
-- [x] Implement schema naming and profiles logic (.dot/<hash>/profiles.yml)
-- [x] Integrate with CLI (e.g., dc run dev@gitref)
-- [x] Implement target path isolation (.dot/<hash>/target/)
-- [x] Update documentation, usage examples, ADR, and reference this plan in docs
-- [x] Update CONTRIBUTING.md and README.md as needed
-- [x] Verify results and finalize task
+6. CLI Command Flow (e.g. `dc run dev@<ref>`)
+   - Derive `<short_hash>` + full hash.
+   - Ensure worktree present.
+   - Generate profiles + context directories.
+   - Invoke dbt with isolated paths.
 
-## Risks and Mitigations
+7. Commit Metadata
+   - Store the full 40-char hash in `.dot/isolated_builds/<short_hash>/commit` (mandatory for audit and reverse mapping).
 
-- **Worktree Conflicts:** Ensure worktrees are managed safely to avoid conflicts or orphaned directories.
-- **Schema Cleanup:** Implement robust cleanup to prevent orphaned schemas or excessive storage use.
-- **Ref Resolution Errors:** Validate refs and handle errors gracefully.
-- **Cross-Platform Compatibility:** Ensure commands work on all supported platforms (Windows, macOS, Linux).
+8. Cleanup (Future)
+   - Provide command to prune by age, count, or unused contexts.
+
+9. Testing
+   - Unit: short hash derivation, directory scaffold (git auto-expands abbreviations).
+   - Integration: end-to-end build creation for multiple refs & contexts.
+   - Path length sanity on Windows (ensure typical depths stay well below limits).
+
+10. Documentation
+    - ADR documents this approach.
+    - README / CONTRIBUTING reference isolated builds and short hash rationale.
+
+## Risks & Mitigations
+
+- Abbreviation Collision: Handled automatically by git via longer abbreviation; separate directory is acceptable.
+- Orphaned Artifacts: Future prune command.
+- Windows Path Length: Short hash minimizes depth.
+- Git Unavailability: Fail fast with clear error message.
+- Manual Worktree Corruption: Validate presence of `.git` metadata; recreate if invalid.
 
 ## Impact
 
-- Enables advanced workflows (diffing, red/green deployments, historical builds).
-- Improves reproducibility and isolation of dbt builds.
-- Adds complexity to build management and CLI tooling.
-- Requires contributors to understand and manage `.dot/` artifacts.
+- Simpler dependency surface (no pygit2).
+- Reproducible and parallelizable historical/contextual builds.
+- No collision management code required.
+
+## Completion Criteria
+
+- Direct git CLI logic replaces all pygit2 references.
+- Short hash directory scheme implemented.
+- Worktrees & context directories generated as specified.
+- Tests updated/passing for new resolution path.
+- ADR & this plan synchronized with direct git approach.
+- CLI executes isolated build using short hash key.
 
 ## References
 
-- [ADR 0001: Isolated Builds](../adr/0001-isolated-builds.md)
-- [pygit2 documentation](https://www.pygit2.org/)
-- [dbt profiles.yml documentation](https://docs.getdbt.com/docs/core/connect-data-platform/profiles.yml)
-- [git worktree documentation](https://git-scm.com/docs/git-worktree)
-- [Git refs and the reflog](https://www.atlassian.com/git/tutorials/refs-and-the-reflog)
+- `git rev-parse`
+- `git worktree`
+- dbt `profiles.yml`
+- Git abbreviation mechanics (`git rev-parse --short`)

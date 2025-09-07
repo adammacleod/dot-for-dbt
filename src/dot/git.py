@@ -1,104 +1,122 @@
 import subprocess
 from pathlib import Path
-from pygit2 import Repository, discover_repository
+
+
+def _run_git(repo_path: Path, *args: str) -> str:
+    """
+    Run a git command in the specified repository and return stdout (stripped).
+
+    Raises:
+        RuntimeError: If the git command fails.
+    """
+    result = subprocess.run(
+        ["git", *args],
+        cwd=repo_path,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"git {' '.join(args)} failed: {result.stderr.strip() or result.stdout.strip()}"
+        )
+    return result.stdout.strip()
 
 
 def get_repo_path(path: Path) -> Path:
     """
-    Find the root path of the git repository containing the given path.
+    Return the git repository root containing `path` using:
+        git rev-parse --show-toplevel
 
     Args:
-        path (Path): A path within the git repository.
+        path (Path): A path within the repository.
 
     Returns:
-        Path: The root path of the git repository.
-    """
-
-    return Path(_get_repo(path).workdir)
-
-
-def _get_repo(path: Path) -> Repository:
-    """
-    Get the pygit2 Repository object for the given repository path.
-
-    Args:
-        path (Path): The path to the git repository.
-
-    Returns:
-        Repository: The pygit2 Repository object.
+        Path: Repository root.
 
     Raises:
-        ValueError: If the repository cannot be found.
+        RuntimeError: If not inside a git repository.
     """
-    repo = Repository(discover_repository(path))
-
-    if not repo:
-        raise ValueError(f"Could not find git repository at {path}")
-    
-    return repo
-
-
-def get_commit_hash_from_gitref(
-    repo_path: Path,
-    gitref: str
-) -> str:
-    """
-    Resolve a git reference (eg, branch name, short commit hash, or tag) to a commit hash.
-
-    Args:
-        repo_path (Path): Path to the git repository.
-        gitref (str): Git reference (branch, tag, or commit hash).
-
-    Returns:
-        str: The resolved commit hash.
-
-    Raises:
-        ValueError: If the reference cannot be resolved.
-    """
-    repo = _get_repo(repo_path)
-
     try:
-        commit, _ = repo.resolve_refish(gitref)
+        repo_root = _run_git(path, "rev-parse", "--show-toplevel")
+        return Path(repo_root)
+    except Exception as e:
+        raise RuntimeError(f"Could not determine git repository root for {path}: {e}")
+
+
+def get_full_commit_hash(repo_path: Path, gitref: str) -> str:
+    """
+    Resolve a git ref to the full 40‑character commit hash.
+
+    Args:
+        repo_path (Path): Path to the repository root.
+        gitref (str): A ref: branch, tag, full/short hash, reflog expr, etc.
+
+    Returns:
+        str: 40‑character commit hash.
+
+    Raises:
+        ValueError: If the ref cannot be resolved.
+    """
+    try:
+        full_hash = _run_git(repo_path, "rev-parse", gitref)
     except Exception as e:
         raise ValueError(f"Could not resolve git ref '{gitref}': {e}")
 
-    if not commit:
-        raise ValueError(f"Reference `{gitref}` not found in repository {repo_path}")
+    if len(full_hash) != 40:
+        raise ValueError(f"Resolved hash for '{gitref}' is not 40 chars: {full_hash}")
+    return full_hash
 
-    commit_hash_str = str(commit.id)
-    return commit_hash_str
+
+def get_short_commit_hash(repo_path: Path, gitref: str) -> str:
+    """
+    Resolve a git ref to its unique abbreviated commit hash (length chosen by git).
+
+    Args:
+        repo_path (Path): Path to the repository root.
+        gitref (str): A ref: branch, tag, full/short hash, reflog expr, etc.
+
+    Returns:
+        str: Abbreviated commit hash (length >= 7, <= 40).
+    """
+    try:
+        short_hash = _run_git(repo_path, "rev-parse", "--short", gitref)
+    except Exception as e:
+        raise ValueError(f"Could not resolve git ref '{gitref}': {e}")
+    return short_hash
+
 
 def create_worktree(
     repo_path: Path,
     worktree_path: Path,
-    commit_hash: str
+    full_commit_hash: str,
 ) -> None:
     """
-    Create a clean worktree at the specified commit hash in the given git repository.
+    Create a clean worktree at the specified full commit hash.
+
+    If the worktree path already exists, this is a no-op.
 
     Args:
-        repo_path (Path): Path to the git repository.
-        worktree_path (Path): Path to the worktree to create.
-        commit_hash (str): The git reference (branch, tag, or commit) to check out.
+        repo_path (Path): Repository root.
+        worktree_path (Path): Destination path for the worktree.
+        full_commit_hash (str): 40‑character commit hash to check out.
 
     Raises:
-        ValueError: If the commit cannot be found or worktree cannot be created.
+        RuntimeError: If the worktree cannot be created.
     """
-
-    # Return the worktree details if we previously checked it out.
-    # TODO: Maybe update this in the future to check with git that the
-    # worktree exists, and that it's a clean checkout.
     if worktree_path.exists():
         return
-    
+
     worktree_path.parent.mkdir(parents=True, exist_ok=True)
 
     result = subprocess.run(
-        ["git", "worktree", "add", str(worktree_path), commit_hash],
+        ["git", "worktree", "add", "--detach", str(worktree_path), full_commit_hash],
         cwd=repo_path,
         capture_output=True,
-        text=True
+        text=True,
     )
-    
+
     if result.returncode != 0:
-        raise RuntimeError(f"Failed to add worktree: {result.stdout.strip()}")
+        raise RuntimeError(
+            f"Failed to add worktree for commit {full_commit_hash}: "
+            f"{result.stderr.strip() or result.stdout.strip()}"
+        )
