@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-09-07
+
 ### Changed
 - Isolated build directory key now uses the git short hash (`git rev-parse --short <ref>`) instead of the full 40-character hash (mitigates Windows path length issues).
 - Directory structure updated to `.dot/build/<short_hash>/worktree/`, `env/<environment>/` (`profiles.yml`, `target/`, `logs/`) plus a `commit` metadata file.
