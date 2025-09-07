@@ -14,12 +14,12 @@ Using the full 40‑character commit hash in directory names unnecessarily incre
 
 We will use the short commit hash (as returned by `git rev-parse --short <ref>`) as the canonical on-disk identifier for isolated build directories and related resources. The git CLI alone is sufficient for ref resolution and abbreviation; no additional git bindings are required.
 
-- Directory layout (per commit + context):
+- Directory layout (per commit + environment):
   - `.dot/build/<short_hash>/worktree/` — clean checkout (created via `git worktree add`) at the resolved full commit.
   - `.dot/build/<short_hash>/commit` — file containing the full 40‑character commit hash.
-  - `.dot/build/<short_hash>/<context>/profiles.yml` — generated profiles file targeting schema `schema_<short_hash>`.
-  - `.dot/build/<short_hash>/<context>/target/` — dbt `--target-path`.
-  - `.dot/build/<short_hash>/<context>/logs/` — dbt `--log-path`.
+  - `.dot/build/<short_hash>/<environment>/profiles.yml` — generated profiles file targeting schema `schema_<short_hash>`.
+  - `.dot/build/<short_hash>/<environment>/target/` — dbt `--target-path`.
+  - `.dot/build/<short_hash>/<environment>/logs/` — dbt `--log-path`.
 
 - Ref & Hash Handling:
   - User supplies a git ref (branch, tag, or hash).
@@ -59,7 +59,7 @@ We will use the short commit hash (as returned by `git rev-parse --short <ref>`)
 - Reduced path lengths (mitigates Windows path limit risks).
 - Maintains reproducibility: short hash deterministically identifies a single commit at build time.
 - Easier navigation and cleaner filesystem footprint.
-- Enables concurrent isolated builds for different commits and contexts.
+- Enables concurrent isolated builds for different commits and environments.
 - Eliminates dependency on external git libraries (simpler runtime + fewer transitive issues).
 - External tooling expecting full hashes must map via stored metadata or `git rev-parse`.
 

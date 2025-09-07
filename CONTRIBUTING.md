@@ -11,7 +11,7 @@ Please be respectful and considerate in all interactions. We welcome contributio
 Core package import name is `dot` (distribution on PyPI is `dot-for-dbt`).
 
 - `src/dot/cli.py` – Argument parsing, top‑level CLI entry (`app()`), dispatch to command construction.
-- `src/dot/dot.py` – Core orchestration logic: vars.yml loading, context resolution, allowed arg filtering, isolated build handling, dbt command assembly.
+- `src/dot/dot.py` – Core orchestration logic: `vars.yml` loading, environment resolution, allowed arg filtering, isolated build handling, dbt command assembly.
 - `src/dot/git.py` – Git repository discovery, commit/ref resolution, worktree creation for isolated builds.
 - `src/dot/profiles.py` – Detection of active `profiles.yml` (via `dbt debug --config-dir`) and generation of isolated profiles with schema suffixing.
 - `src/dot/__init__.py` – Dynamic `__version__` exposure via package metadata (no manual edits).
@@ -28,6 +28,7 @@ Core package import name is `dot` (distribution on PyPI is `dot-for-dbt`).
 Design Key Points:
 - Distribution name differs from import name (`dot-for-dbt` vs `dot`) for PyPI uniqueness.
 - Isolated builds leverage git worktrees + rewritten profiles for schema isolation.
+- Execution configuration bundles formerly called “context” are now “environment” (breaking rename with no backward compatibility).
 
 ## Getting Started
 
@@ -44,8 +45,14 @@ uv tool install . -e
 After any code changes, always run:
 
 ```bash
+uv run pytest -q
+```
+
+You can also do a manual smoke inside the example project (ensure a profile/warehouse is configured first):
+
+```bash
 cd example_dbt_project
-dot build prod
+dot build
 ```
 
 ## Contributing Guidelines
@@ -56,6 +63,7 @@ dot build prod
 - Keep the codebase clean and well-documented.
 - Update the README.md and this file if your changes affect usage or development.
 - Document major design decisions using an ADR (Architectural Decision Register). See the [adr/](adr/) directory for existing decisions, including [ADR 0001: Isolated Builds](adr/0001-isolated-builds.md), which describes the isolated builds workflow.
+- When introducing or reworking execution configuration semantics, use the term “environment” consistently (never “context”).
 
 ## How to Get Help
 
@@ -198,7 +206,7 @@ Optionally create GitHub Release referencing tag & changelog notes.
 | 403 on publish | Wrong / missing token | Ensure `UV_PUBLISH_TOKEN` set & scoped to project |
 | Version exists | Immutable PyPI | Bump version (`uv version --bump patch`) |
 | Missing files in sdist | Not included | Check hatch include list & rebuild |
-| Local code imported instead of installed | Path precedence | Use `uv venv` + explicit install, avoid running from repo root with `python -m` for validation |
+| Local code imported instead of installed | Path precedence | Use `uv venv` + explicit install |
 | TestPyPI install pulls prod deps only | Index precedence | Always use `--index-url testpypi --extra-index-url pypi` |
 
 ### 12. Security Recommendations

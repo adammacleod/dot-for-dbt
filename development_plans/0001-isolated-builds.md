@@ -14,7 +14,7 @@ The full 40‑character hash is still captured for audit and reverse mapping in 
 - Use `git rev-parse --short <ref>` to derive `<short_hash>` (auto-expands when ambiguous).
 - Use `<short_hash>` as the filesystem key: `.dot/build/<short_hash>/`.
 - Name schemas `schema_<short_hash>`.
-- Support multiple contexts (e.g. dev, prod) per commit concurrently.
+- Support multiple environments (e.g. dev, prod) per commit concurrently.
 - Keep operations minimal: depend only on standard git CLI tooling.
 - Rely on git auto-expanding abbreviations; no custom collision logic.
 - Provide future hooks for pruning and metadata.
@@ -26,7 +26,7 @@ The full 40‑character hash is still captured for audit and reverse mapping in 
   build/
     <short_hash>/
       worktree/                # Clean checkout at full commit
-      <context>/               # e.g. dev, prod
+      <environment>/           # e.g. dev, prod
         profiles.yml           # schema: schema_<short_hash>
         target/                # dbt --target-path
         logs/                  # dbt --log-path
@@ -49,28 +49,28 @@ The full 40‑character hash is still captured for audit and reverse mapping in 
    - No custom logic. If ambiguity exists git returns a longer abbreviation automatically; this yields a new isolated build directory.
 
 4. Profiles Generation
-   - Generate `.dot/build/<short_hash>/<context>/profiles.yml` with schema `schema_<short_hash>`.
+   - Generate `.dot/build/<short_hash>/<environment>/profiles.yml` with schema `schema_<short_hash>`.
    - Keep logic centralized (e.g. in profiles module/function).
 
 5. Artifact Isolation
-   - `--target-path` → `.dot/build/<short_hash>/<context>/target`
-   - `--log-path` → `.dot/build/<short_hash>/<context>/logs`
+   - `--target-path` → `.dot/build/<short_hash>/<environment>/target`
+   - `--log-path` → `.dot/build/<short_hash>/<environment>/logs`
 
-6. CLI Command Flow (e.g. `dc run dev@<ref>`)
+6. CLI Command Flow (e.g. `dot run dev@<ref>`)
    - Derive `<short_hash>` + full hash.
    - Ensure worktree present.
-   - Generate profiles + context directories.
+   - Generate profiles + environment directories.
    - Invoke dbt with isolated paths.
 
 7. Commit Metadata
    - Store the full 40-char hash in `.dot/build/<short_hash>/commit` (mandatory for audit and reverse mapping).
 
 8. Cleanup (Future)
-   - Provide command to prune by age, count, or unused contexts.
+   - Provide command to prune by age, count, or unused environments.
 
 9. Testing
    - Unit: short hash derivation, directory scaffold (git auto-expands abbreviations).
-   - Integration: end-to-end build creation for multiple refs & contexts.
+   - Integration: end-to-end build creation for multiple refs & environments.
    - Path length sanity on Windows (ensure typical depths stay well below limits).
 
 10. Documentation
@@ -88,14 +88,14 @@ The full 40‑character hash is still captured for audit and reverse mapping in 
 ## Impact
 
 - Simpler dependency surface (no pygit2).
-- Reproducible and parallelizable historical/contextual builds.
+- Reproducible and parallelizable historical/environment-specific builds.
 - No collision management code required.
 
 ## Completion Criteria
 
 - Direct git CLI logic replaces all pygit2 references.
 - Short hash directory scheme implemented.
-- Worktrees & context directories generated as specified.
+- Worktrees & environment directories generated as specified.
 - Tests updated/passing for new resolution path.
 - ADR & this plan synchronized with direct git approach.
 - CLI executes isolated build using short hash key.

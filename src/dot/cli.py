@@ -14,7 +14,6 @@ from .logging import get_logger
 
 logger = get_logger('dot.cli')
 
-
 def parse_args() -> tuple[argparse.Namespace, list[str]]:
     """
     Parse command-line arguments and separate passthrough args.
@@ -35,7 +34,7 @@ def parse_args() -> tuple[argparse.Namespace, list[str]]:
         passthrough_args = []
 
     parser = argparse.ArgumentParser(
-        description="Run dbt commands with context-based vars from vars.yml"
+        description="Run dbt commands with environment-based vars from vars.yml"
     )
     parser.add_argument(
         "-v",
@@ -66,13 +65,12 @@ def parse_args() -> tuple[argparse.Namespace, list[str]]:
         help=f"dbt command to run. Allowed: {', '.join(allowed_dbt_commands)}"
     )
     parser.add_argument(
-        "context",
+        "environment",
         nargs="?",
-        help="Context name as defined in vars.yml (optional, uses default if omitted)"
+        help="Environment name as defined in vars.yml (optional, uses default if omitted)"
     )
     args = parser.parse_args(cli_args)
     return args, passthrough_args
-
 
 def enforce_dot_gitignore(dbt_project_path: Path) -> None:
     """
@@ -121,7 +119,6 @@ def enforce_dot_gitignore(dbt_project_path: Path) -> None:
             logger.error("[yellow]Refusing to run: '.dot/' must be ignored in .gitignore for dot to run.[/]")
             sys.exit(1)
 
-
 def app() -> int:
     """
     Main entry point for the CLI application.
@@ -155,19 +152,19 @@ def app() -> int:
 
     try:
         vars_yml_path = Path.cwd() / "vars.yml"
-        active_context = args.context
+        active_environment = args.environment
 
         gitref = None
-        if active_context and "@" in active_context:
-            active_context, gitref = active_context.split("@", 1)
-            active_context = None if active_context.strip() == '' else active_context
+        if active_environment and "@" in active_environment:
+            active_environment, gitref = active_environment.split("@", 1)
+            active_environment = None if active_environment.strip() == '' else active_environment
             gitref = None if gitref.strip() == '' else gitref
 
         dbt_command = dot.dbt_command(
             dbt_command_name=args.dbt_command,
             dbt_project_path=dbt_project_path,
             vars_yml_path=vars_yml_path,
-            active_context=active_context,
+            active_environment=active_environment,
             passthrough_args=passthrough_args,
             gitref=gitref
         )
@@ -178,7 +175,6 @@ def app() -> int:
             raise
         else:
             sys.exit(1)
-
 
     if args.dry_run:
         return 0

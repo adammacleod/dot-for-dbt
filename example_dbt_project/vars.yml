@@ -19,23 +19,23 @@ vars:
       - false
     default: false
 
-
-# The `context` section defines sets of command line arguments which should be passed
-# to the dbt CLI. There are two special contexts, `all` and `default`.
-# Arguments specified in `all` will be applied to all contexts, unless overridden in the context.
-# `default` is the name of the default context, which will be run if a context is not specified.
+# The `environment` section defines sets of command line arguments which should
+# be passed to the dbt CLI. There are two special environments, `all` and `default`.
+# Arguments specified in `all` will be applied to all environments, unless overridden
+# in the specific environment. `default` is the name of the default environment,
+# which will be run if an environment is not specified on the CLI.
 #
 # Example:
 #
-# context:
-#   default: <context_name>
+# environment:
+#   default: <environment_name>
 #   all:
 #     <argument>: <value>
-#   <context_name>:
+#   <environment_name>:
 #     <argument>: <value>
 #     vars:
 #       <my_variable>: <value>
-context:
+environment:
   default: dev
 
   all:

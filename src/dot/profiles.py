@@ -7,13 +7,12 @@ from .logging import get_logger
 
 logger = get_logger("dot.dot")
 
-
 def write_isolated_profiles_yml(
     dbt_project_path: Path,
     isolated_dbt_project_path: Path,
-    isolated_profile_path: Path,
+    isolated_environment_path: Path,
     short_hash: str,
-    active_context: str,
+    active_environment: str,
 ) -> None:
     """
     Write a dbt profiles.yml for an isolated schema build.
@@ -21,9 +20,9 @@ def write_isolated_profiles_yml(
     Args:
         dbt_project_path (Path): The path to the original dbt project directory.
         isolated_dbt_project_path (Path): The path to the isolated dbt project directory.
-        isolated_profile_path (Path): Path where profiles.yml will be written.
+        isolated_environment_path (Path): Path where profiles.yml will be written.
         short_hash (str): The short commit hash.
-        active_context (str): The dbt context/target name to use.
+        active_environment (str): The dbt environment/target name to use.
     """
 
     # TODO: The user may pass a profile name on the command line. We need to source 
@@ -43,7 +42,7 @@ def write_isolated_profiles_yml(
 
     # We read the profiles.yml from the original dbt project, because this
     # is the actively configured dbt profile for the end user of dot.
-    profiles_yml_path = _profiles_yml_path(dbt_project_path, active_context)
+    profiles_yml_path = _profiles_yml_path(dbt_project_path, active_environment)
     with open(profiles_yml_path, "r") as f:
         all_profiles = yaml.safe_load(f)
 
@@ -53,44 +52,43 @@ def write_isolated_profiles_yml(
     profile = all_profiles[profile_name]
 
     # Get the correct output configuration
-    if not "outputs" in profile:
+    if "outputs" not in profile:
         raise ValueError(f"Profile '{profile_name}' does not have an 'outputs' section in {profiles_yml_path}")
     
-    if not active_context in profile["outputs"]:
-        raise ValueError(f"Target '{active_context}' not found in outputs of profile '{profile_name}' within {profiles_yml_path}")
+    if active_environment not in profile["outputs"]:
+        raise ValueError(f"Target '{active_environment}' not found in outputs of profile '{profile_name}' within {profiles_yml_path}")
 
-    target = profile["outputs"][active_context]
+    target = profile["outputs"][active_environment]
     target["schema"] = f"{target.get('schema', 'dbt')}_{short_hash}"
 
     new_profiles_yml = {
         profile_name: {
-            'target': active_context,
-            'outputs': {
-                active_context: target
+            "target": active_environment,
+            "outputs": {
+                active_environment: target
             }
         }
     }
 
-    isolated_profile_path.mkdir(parents=True, exist_ok=True)
+    isolated_environment_path.mkdir(parents=True, exist_ok=True)
 
-    with open(isolated_profile_path / "profiles.yml", "w") as f:
+    with open(isolated_environment_path / "profiles.yml", "w") as f:
         yaml.safe_dump(
-            new_profiles_yml, 
-            f, 
+            new_profiles_yml,
+            f,
             default_flow_style=False
         )
 
-
 def _profiles_yml_path(
     dbt_project_path: Path,
-    active_context: str
+    active_environment: str
 ) -> Path:
     """
     Detect the location of profiles.yml using dbt debug output.
 
     Args:
         dbt_project_path (Path): The path to the dbt project directory.
-        active_context (str): The dbt context/target name to use.
+        active_environment (str): The dbt environment/target name to use.
 
     Returns:
         Path: The path to the detected profiles.yml file.
@@ -114,14 +112,13 @@ def _profiles_yml_path(
     # the precedence for building the project to go:
     # command line args > user_vars.yml > vars.yml > dbt_project.yml.
 
-    # Use dot.dbt_command to run dbt debug and capture output
     logger.debug("Detecting profiles.yml location with `dbt debug`:")
     dbt_command = dot.dbt_command(
         dbt_command_name="debug",
         dbt_project_path=dbt_project_path,
         vars_yml_path=dbt_project_path / "vars.yml",
-        active_context=active_context,
-        passthrough_args=['--config-dir'],
+        active_environment=active_environment,
+        passthrough_args=["--config-dir"],
         log_level=logging.DEBUG,
     )
 
@@ -133,7 +130,7 @@ def _profiles_yml_path(
     )
 
     # Extract the path from the last line of stdout
-    path = Path(result.stdout.splitlines()[-1].strip().split(' ', 1)[1]) / 'profiles.yml'
+    path = Path(result.stdout.splitlines()[-1].strip().split(' ', 1)[1]) / "profiles.yml"
 
     if path.exists():
         return path

@@ -1,6 +1,6 @@
 # The Data Orchestration Tool for dbt (dot-for-dbt)
 
-`dot` is a lightweight companion CLI for dbt that lets you run any dbt command for an optional named context and an exact git commit/ref using the shorthand `<context?>@<ref>`. Adding `@<ref>` builds that historical version into a schema automatically suffixed with the commit’s short hash (e.g. `analytics_a1b2c3d4`) so your current schemas stay untouched. This enables reproducible historical builds, safe experimentation, side‑by‑side diffing, and confident migration or release validation.
+`dot` is a lightweight companion CLI for dbt that lets you run any dbt command for an optional named environment and an exact git commit/ref using the shorthand `<environment?>@<ref>`. Adding `@<ref>` builds that historical version into a schema automatically suffixed with the commit’s short hash (e.g. `analytics_a1b2c3d4`) so your current schemas stay untouched. This enables reproducible historical builds, safe experimentation, side‑by‑side diffing, and confident migration or release validation.
 
 ## Installation
 
@@ -41,13 +41,13 @@ uv tool uninstall dot-for-dbt
 ## Quick Example
 
 ```bash
-# Build current project using default context
+# Build current project using default environment
 dot build
 
 # Build historical commit (isolated schema)
 dot build @abc1234
 
-# Build specific context at a ref
+# Build specific environment at a ref
 dot run dev@feature/my-branch
 ```
 
@@ -56,19 +56,19 @@ dot run dev@feature/my-branch
 Basic usage:
 
 ```sh
-dot <dbt_command> <context> [--dry-run] [--no-gitignore-check]
+dot <dbt_command> <environment> [--dry-run] [--no-gitignore-check]
 ```
 
 - `<dbt_command>` is any supported dbt command (e.g., build, run, test).
-- `<context>` (Optional) is the environment/context which you want to target as defined in your `vars.yml`. If you do not specify a context, the default context from `vars.yml` will be used.
+- `<environment>` (Optional) is the environment which you want to target as defined in your `vars.yml` under the top-level `environment:` key. If you do not specify an environment, the default environment from `vars.yml` will be used.
 
-To build or run against a specific git commit in an isolated schema, append `@<gitref or commit>` to the context:
+To build or run against a specific git commit in an isolated schema, append `@<gitref or commit>` to the environment:
 
 ```sh
-dot <dbt_command> <context>@<gitref or commit>
+dot <dbt_command> <environment>@<gitref or commit>
 ```
 
-You can also build into the default context at a certain commit:
+You can also build into the default environment at a certain commit:
 
 ```sh
 dot <dbt_command> @<gitref or commit>
@@ -94,10 +94,32 @@ To ensure correct setup, add the following line to your `.gitignore`:
 
 ## vars.yml Behavior
 
-- `vars.yml` is optional. If it does not exist in your working directory, dot will proceed with default settings and no context-based variables.
+Top-level structure (relevant parts):
+
+```yaml
+vars:
+  ...
+
+environment:
+  default: dev
+  all:
+    indirect-selection: buildable
+  dev:
+    target: dev
+    vars:
+      some_var: true
+  prod:
+    target: prod
+    vars:
+      some_var: false
+```
+
+Rules:
+
+- `vars.yml` is optional. If it does not exist in your working directory, dot will proceed with default settings and no environment-based variables.
 - If `vars.yml` exists but is malformed (invalid YAML), dot will print an error and exit.
-- If you specify a context that does not exist in `vars.yml`, dot will print an error and exit.
-- If no context is specified and no default is set in `vars.yml`, dot will proceed with default settings.
+- If you specify an environment that does not exist in `vars.yml`, dot will print an error and exit.
+- If no environment is specified and no default is set in `vars.yml`, dot will proceed with default settings.
 
 ## Isolated Builds
 
@@ -106,17 +128,17 @@ Isolated builds let you execute a dbt command against the exact contents of any 
 - Reproducibility (build exactly what existed at that commit)
 - Confidence to roll forward/back by inspecting isolated artifacts
 
-Future features are planned to make more extensive use of isolated builds
+Future features are planned to make more extensive use of isolated builds.
 
 ### Quick Start
 
-To build using the default context specified in `vars.yml` at a particular historical git reference, simply omit the context and use `@<ref>`:
+To build using the default environment specified in `vars.yml` at a particular historical git reference, simply omit the environment and use `@<ref>`:
 
 ```sh
 dot build @abc1234
 ```
 
-Build an explicit context against a ref:
+Build an explicit environment against a ref:
 ```sh
 dot run dev@feature/my-branch
 dot test prod@v1.2.0
@@ -131,11 +153,11 @@ dot build prod@main
 ### Syntax Summary
 
 ```
-<context?>@<gitref>
+<environment?>@<gitref>
 ```
-- `context` (optional) — name defined under `context` in `vars.yml`
+- `environment` (optional) — name defined under `environment` in `vars.yml`
 - `gitref` (optional) — branch, tag, full/short hash, reflog expression, etc.
-- If `@<gitref>` is supplied with no leading context, the default context is used.
+- If `@<gitref>` is supplied with no leading environment, the default environment is used.
 - If no `@` suffix is provided, this is a normal (non‑isolated) build against the current state of your project.
 
 ### What Happens Internally
@@ -143,37 +165,28 @@ dot build prod@main
 1. Resolve `<gitref>` to the full 40‑char commit hash and the abbreviated short hash via:
    - `git rev-parse <gitref>`
    - `git rev-parse --short <gitref>`
-
 2. Construct: `.dot/build/<short_hash>/`
-
 3. Create (or reuse) a clean git worktree at:
    ```
    .dot/build/<short_hash>/worktree/
    ```
-
 4. Locate the dbt project inside that worktree matching the original project path.
-
 5. Detect the active `profiles.yml` location (`dbt debug --config-dir`).
-
-6. Read the selected profile + target (context name).
-
+6. Read the selected profile + target (environment name).
 7. Write an isolated `profiles.yml` to:
    ```
-   .dot/build/<short_hash>/<context>/profiles.yml
+   .dot/build/<short_hash>/<environment>/profiles.yml
    ```
    with the target schema updated to `<schema>_<short_hash>`.
-
 8. Set dbt CLI args so that:
    - `--project-dir` points at the isolated worktree project
-   - `--profiles-dir` points at `.dot/build/<short_hash>/<context>`
-   - `--target-path` is `.dot/build/<short_hash>/<context>/target`
-   - `--log-path` is `.dot/build/<short_hash>/<context>/logs`
-
+   - `--profiles-dir` points at `.dot/build/<short_hash>/<environment>`
+   - `--target-path` is `.dot/build/<short_hash>/<environment>/target`
+   - `--log-path` is `.dot/build/<short_hash>/<environment>/logs`
 9. Write the full hash to:
    ```
    .dot/build/<short_hash>/commit
    ```
-
 10. Execute the dbt command.
 
 ### Schema Naming
@@ -200,7 +213,7 @@ Example layout for an isolated build:
     <short_hash>/           # Directory keyed by abbreviated hash
       worktree/             # Clean checkout at that commit
       commit                # File containing full 40-char commit hash
-      dev/                  # One folder per context used with this commit
+      dev/                  # One folder per environment used with this commit
         profiles.yml        # Auto-generated, schema rewritten with _<short_hash>
         target/             # dbt artifacts (manifest, run results, etc.)
         logs/               # dbt logs for this isolated run
@@ -210,7 +223,7 @@ Example layout for an isolated build:
         logs/
 ```
 
-If you build multiple contexts (`dev`, `prod`) for the same commit, each gets its own context subdirectory.
+If you build multiple environments (`dev`, `prod`) for the same commit, each gets its own environment subdirectory.
 
 ### Examples
 
@@ -243,7 +256,7 @@ dot run dev@2024-12-01-tag
 
 `dot` invokes `dbt debug --config-dir` (wrapped through its own command builder) to locate the effective `profiles.yml`. It then:
 - Loads the user’s configured profile
-- Extracts the target matching the active context
+- Extracts the target matching the active environment
 - Updates only the `schema` field (preserving credentials, threads, etc.)
 - Writes a minimal isolated `profiles.yml` containing just that profile + target
 
@@ -267,10 +280,10 @@ Automatic management of old build artifacts and schemas is planned for a future 
 
 | Symptom | Cause | Action |
 |---------|-------|--------|
-| Error: Profile not found | Active context or profile missing | Verify `profiles.yml` and context name |
+| Error: Profile not found | Active environment or profile missing | Verify `profiles.yml` and environment name |
 | Commit not found | Bad ref | Run `git show<ref>` to validate |
 | Schema clutter | Many builds kept | Periodically prune `.dot/build` and drop old schemas |
-| Wrong default context | `context.default` unset or unexpected | Set `default` under `context` in `vars.yml` |
+| Wrong default environment | `environment.default` unset or unexpected | Set `default` under `environment` in `vars.yml` |
 
 ### Reference
 
