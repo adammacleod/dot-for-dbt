@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-09-08
+
 ### Added
 - Configuration split introducing three-file model (see ADR 0002 & 0003):
   - `dot_vars.yml` for variable specifications (description, values, strict, required).
@@ -25,7 +27,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Notes
 - Undeclared variables assigned in environments are passed through without warning (intentional flexibility).
-- This change will be part of the next release after 0.3.0.
 
 ## [0.3.0] - 2025-09-07
 
