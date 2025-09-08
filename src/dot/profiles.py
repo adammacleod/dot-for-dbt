@@ -97,26 +97,20 @@ def _profiles_yml_path(
         FileNotFoundError: If the profiles.yml location cannot be detected.
     """
 
-    # TODO: Decide if we should use vars.yml from the current dbt project, 
-    # or the isolated build environment. 
-    # I was thinking to take this from the worktree path, although I'm not
-    # totally sure. There's reasons for going both ways.
-    #
-    # main dbt project path: because we are trying to resolve the users
-    # current configuration for profiles.yml, and this is probably the most
-    # accurate way to do that.
-    # 
-    # Worktree path: because it sets the defaults for any variables
-    # AS AT when that commit was made. This might make more sense once we
-    # stabalise vars.yml, and introduce something like user_vars.yml. With
-    # the precedence for building the project to go:
-    # command line args > user_vars.yml > vars.yml > dbt_project.yml.
+    # NOTE (ADR 0002):
+    # Configuration for environments & vars is now sourced from:
+    #   dot_environments.yml (+ optional dot_environments.user.yml)
+    # at the project root. We intentionally DO NOT (yet) load the historical
+    # version of configuration from the isolated worktree for `dbt debug`
+    # resolution because we want the active developer context (profiles location)
+    # rather than historical variance. A future enhancement may optionally allow
+    # resolving config from the worktree commit if reproducibility of config
+    # definitions (not just code) becomes critical.
 
     logger.debug("Detecting profiles.yml location with `dbt debug`:")
     dbt_command = dot.dbt_command(
         dbt_command_name="debug",
         dbt_project_path=dbt_project_path,
-        vars_yml_path=dbt_project_path / "vars.yml",
         active_environment=active_environment,
         passthrough_args=["--config-dir"],
         log_level=logging.DEBUG,

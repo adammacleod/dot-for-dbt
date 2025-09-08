@@ -1,0 +1,39 @@
+# dot_vars.yml
+#
+# A configuration file to document and validate your dbt project variables 
+# (https://docs.getdbt.com/docs/build/project-variables)
+# 
+# For each variable your dbt project uses, you can optionally provide
+# metadata (like a description), valid values, whether the variable must be
+# one of the valid values (strict: true), and whether the variable is
+# required to be set (required: true).
+# 
+# This file does NOT assign concrete values; it defines what is valid so
+# execution can be validated consistently. Actual values are supplied via
+# dot_environments.yml and dot_environments.user.yml.
+#
+# Layering / Precedence:
+#   - This specification file has no user override layer. It is intended
+#     that this file will be added into source control and shared with
+#     all users of the project.
+#
+# Top-level Structure:
+# vars:
+#   <variable_name>:
+#     description: <string>     # Optional description of the variable
+#     values: [<allowed>, ...]  # Optional list of allowed values
+#     strict: true|false        # Whether variable value must be one of `values`
+#     required: true|false      # If true, this variable must be assigned
+#
+# Relationship to Environments:
+#   - Specs here are used to validate that the variables assigned in
+#     `dot_environments.yml` and `dot_environments.user.yml` are correct.
+#
+# Example below:
+
+vars:
+  filter_null_values:
+    description: Determines whether null values should be filtered out
+    values: [true, false]
+    strict: false
+    required: false

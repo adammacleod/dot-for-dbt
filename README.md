@@ -60,7 +60,7 @@ dot <dbt_command> <environment> [--dry-run] [--no-gitignore-check]
 ```
 
 - `<dbt_command>` is any supported dbt command (e.g., build, run, test).
-- `<environment>` (Optional) is the environment which you want to target as defined in your `vars.yml` under the top-level `environment:` key. If you do not specify an environment, the default environment from `vars.yml` will be used.
+- `<environment>` (Optional) is the environment which you want to target as defined in your `dot_environments.yml` under the top-level `environment:` key. If you do not specify an environment, the default environment from `dot_environments.yml` will be used.
 
 To build or run against a specific git commit in an isolated schema, append `@<gitref or commit>` to the environment:
 
@@ -92,34 +92,77 @@ To ensure correct setup, add the following line to your `.gitignore`:
 .dot/
 ```
 
-## vars.yml Behavior
+## Configuration Files
 
-Top-level structure (relevant parts):
+`dot` uses two project-level configuration files plus an optional user override:
+
+1. `dot_vars.yml` (optional)  
+   Defines variable specifications (metadata and validation). If absent, no variable validation (required/strict) occurs.
+2. `dot_environments.yml` (optional)  
+   Defines execution environments, default environment selection, dbt CLI argument values, and per‑environment variable value assignments.
+3. `dot_environments.user.yml` (optional, uncommitted)  
+   Adds or overrides environment definitions / variable assignments locally for a developer.
+
+There is a strict separation:
+- Variable *specifications* (description, allowed values, required, strict) live only in `dot_vars.yml`.
+- Variable *values* are assigned only inside the `environment:` structure of the environments files (`dot_environments.yml` and optionally `dot_environments.user.yml`) under `environment.all.vars` or `environment.<name>.vars`.
+
+### `dot_vars.yml` Example
 
 ```yaml
 vars:
-  ...
+  feature_flag:
+    description: Enables new metric logic
+    values: [true, false]
+    strict: true
+    required: true
+  sample_rate:
+    description: Percentage of events to process
+    values: [1, 5, 10, 25, 50, 100]
+    strict: true
+    required: false
+```
 
+### `dot_environments.yml` Example
+
+```yaml
 environment:
   default: dev
   all:
     indirect-selection: buildable
+    vars:
+      feature_flag: false
   dev:
     target: dev
     vars:
-      some_var: true
+      sample_rate: 10
   prod:
     target: prod
     vars:
-      some_var: false
+      feature_flag: true
+      sample_rate: 100
 ```
 
-Rules:
+### `dot_environments.user.yml` Example (Local Override)
 
-- `vars.yml` is optional. If it does not exist in your working directory, dot will proceed with default settings and no environment-based variables.
-- If `vars.yml` exists but is malformed (invalid YAML), dot will print an error and exit.
-- If you specify an environment that does not exist in `vars.yml`, dot will print an error and exit.
-- If no environment is specified and no default is set in `vars.yml`, dot will proceed with default settings.
+```yaml
+environment:
+  dev:
+    vars:
+      feature_flag: true   # locally override baseline
+    threads: 12
+```
+
+### Rules & Behavior
+- All files are optional; absence yields default behavior (no environments, no validation).
+- If `environment.default` is set it must name a defined environment.
+- Variable validation (required / strict) is applied only to variables declared in `dot_vars.yml`.
+- Undeclared variables assigned in environments are passed through without warnings or errors.
+- User override merges shallowly with the project environments file; nested `vars` mappings are deep merged.
+
+See:
+- ADR 0002 for environment configuration & overrides
+- ADR 0003 for variable specifications
 
 ## Isolated Builds
 
@@ -132,7 +175,7 @@ Future features are planned to make more extensive use of isolated builds.
 
 ### Quick Start
 
-To build using the default environment specified in `vars.yml` at a particular historical git reference, simply omit the environment and use `@<ref>`:
+To build using the default environment specified in `dot_environments.yml` at a particular historical git reference, simply omit the environment and use `@<ref>`:
 
 ```sh
 dot build @abc1234
@@ -155,7 +198,7 @@ dot build prod@main
 ```
 <environment?>@<gitref>
 ```
-- `environment` (optional) — name defined under `environment` in `vars.yml`
+- `environment` (optional) — name defined under `environment` in `dot_environments.yml`
 - `gitref` (optional) — branch, tag, full/short hash, reflog expression, etc.
 - If `@<gitref>` is supplied with no leading environment, the default environment is used.
 - If no `@` suffix is provided, this is a normal (non‑isolated) build against the current state of your project.
@@ -210,14 +253,14 @@ Example layout for an isolated build:
 ```
 .dot/
   build/
-    <short_hash>/           # Directory keyed by abbreviated hash
-      worktree/             # Clean checkout at that commit
-      commit                # File containing full 40-char commit hash
-      env/                  # Parent directory for all environment-specific artifacts
+    <short_hash>/           
+      worktree/             
+      commit                
+      env/                  
         dev/
-          profiles.yml      # Auto-generated, schema rewritten with _<short_hash>
-          target/           # dbt artifacts (manifest, run results, etc.)
-          logs/             # dbt logs for this isolated run
+          profiles.yml      
+          target/           
+          logs/             
         prod/
           profiles.yml
           target/
@@ -255,7 +298,7 @@ dot run dev@2024-12-01-tag
 
 ### profiles.yml Detection & Rewriting
 
-`dot` invokes `dbt debug --config-dir` (wrapped through its own command builder) to locate the effective `profiles.yml`. It then:
+`dot` invokes `dbt debug --config-dir` to locate the effective `profiles.yml`. It then:
 - Loads the user’s configured profile
 - Extracts the target matching the active environment
 - Updates only the `schema` field (preserving credentials, threads, etc.)
@@ -271,20 +314,17 @@ dot run dev@main -- --select my_model+
 ### Cleanup
 
 Currently there is no automatic cleanup. To reclaim space:
-
 - Drop old schemas manually from your warehouse
 - Remove stale directories under `.dot/build/`
-
-Automatic management of old build artifacts and schemas is planned for a future release. Please let me know if this would be important to you!
 
 ### Troubleshooting
 
 | Symptom | Cause | Action |
 |---------|-------|--------|
 | Error: Profile not found | Active environment or profile missing | Verify `profiles.yml` and environment name |
-| Commit not found | Bad ref | Run `git show<ref>` to validate |
-| Schema clutter | Many builds kept | Periodically prune `.dot/build` and drop old schemas |
-| Wrong default environment | `environment.default` unset or unexpected | Set `default` under `environment` in `vars.yml` |
+| Commit not found | Bad ref | Run `git show <ref>` to validate |
+| Schema clutter | Many builds kept | Prune `.dot/build` & drop old schemas |
+| Wrong default environment | Missing or unexpected `environment.default` | Set `default` under `environment` |
 
 ### Reference
 
@@ -295,6 +335,8 @@ For architectural rationale see: [ADR 0001: Isolated Builds](adr/0001-isolated-b
 Architectural decisions are documented in the [adr/](adr/) directory.
 
 - [ADR 0001: Isolated Builds](adr/0001-isolated-builds.md)
+- [ADR 0002: Environment Configuration](adr/0002-environment-config.md)
+- [ADR 0003: Variable Configuration (dot_vars.yml)](adr/0003-variable-config.md)
 
 ## Changelog
 

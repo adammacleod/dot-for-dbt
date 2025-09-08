@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 
 from dot import dot, __version__
+from dot.config import load_config
 from .git import get_repo_path
 
 from . import logging
@@ -34,7 +35,7 @@ def parse_args() -> tuple[argparse.Namespace, list[str]]:
         passthrough_args = []
 
     parser = argparse.ArgumentParser(
-        description="Run dbt commands with environment-based vars from vars.yml"
+        description="Run dbt commands with environment-based configuration from dot_environments.yml"
     )
     parser.add_argument(
         "-v",
@@ -67,7 +68,7 @@ def parse_args() -> tuple[argparse.Namespace, list[str]]:
     parser.add_argument(
         "environment",
         nargs="?",
-        help="Environment name as defined in vars.yml (optional, uses default if omitted)"
+        help="Environment name as defined in dot_environments.yml (optional, uses default if omitted, may append @<gitref>)"
     )
     args = parser.parse_args(cli_args)
     return args, passthrough_args
@@ -151,7 +152,6 @@ def app() -> int:
         sys.exit(1)
 
     try:
-        vars_yml_path = Path.cwd() / "vars.yml"
         active_environment = args.environment
 
         gitref = None
@@ -163,7 +163,6 @@ def app() -> int:
         dbt_command = dot.dbt_command(
             dbt_command_name=args.dbt_command,
             dbt_project_path=dbt_project_path,
-            vars_yml_path=vars_yml_path,
             active_environment=active_environment,
             passthrough_args=passthrough_args,
             gitref=gitref

@@ -11,7 +11,7 @@ Please be respectful and considerate in all interactions. We welcome contributio
 Core package import name is `dot` (distribution on PyPI is `dot-for-dbt`).
 
 - `src/dot/cli.py` – Argument parsing, top‑level CLI entry (`app()`), dispatch to command construction.
-- `src/dot/dot.py` – Core orchestration logic: `vars.yml` loading, environment resolution, allowed arg filtering, isolated build handling, dbt command assembly.
+- `src/dot/dot.py` – Core orchestration logic: environment resolution via `dot_environments.yml`, variable spec via `dot_vars.yml`, allowed arg filtering, isolated build handling, dbt command assembly.
 - `src/dot/git.py` – Git repository discovery, commit/ref resolution, worktree creation for isolated builds.
 - `src/dot/profiles.py` – Detection of active `profiles.yml` (via `dbt debug --config-dir`) and generation of isolated profiles with schema suffixing.
 - `src/dot/__init__.py` – Dynamic `__version__` exposure via package metadata (no manual edits).

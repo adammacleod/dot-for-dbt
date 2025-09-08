@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+### Added
+- Configuration split introducing three-file model (see ADR 0002 & 0003):
+  - `dot_vars.yml` for variable specifications (description, values, strict, required).
+  - `dot_environments.yml` for project environment definitions and variable value assignments.
+  - `dot_environments.user.yml` (uncommitted) for local developer overrides (takes precedence over project file).
+
+### Changed
+- Deep merge now limited to `environment.*.vars` mappings; other environment keys merge shallowly.
+- User override file merges into project environments with per-variable overrides instead of wholesale replacement.
+
+### Removed
+- Support for root-level `vars` in environment configuration files (must reside in `dot_vars.yml`).
+
+### Documentation
+- Added ADR 0002 (Environments Configuration & Overrides) and ADR 0003 (Variable Specifications) describing the new architecture.
+- README & CONTRIBUTING updated to reflect separation of specification vs assignment and user override precedence.
+
+### Notes
+- Undeclared variables assigned in environments are passed through without warning (intentional flexibility).
+- This change will be part of the next release after 0.3.0.
+
 ## [0.3.0] - 2025-09-07
 
 ### Changed

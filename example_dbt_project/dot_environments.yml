@@ -1,0 +1,54 @@
+# dot_environments.yml
+#
+# This file defines the executable "environments" that the `dot` CLI can target
+# when running dbt commands. Each environment is simply a named bundle of dbt
+# CLI arguments plus optional variable value assignments. The file focuses on
+# operational execution only (what to run / with which dbt args); variable
+# *specifications* (metadata like allowed values, required, descriptions) are
+# defined separately in `dot_vars.yml`.
+#
+# Layering:
+#   1. Project file: dot_environments.yml (this file, committed)
+#   2. Optional user overrides: dot_environments.user.yml (uncommitted)
+# The user file can add new environments or override / extend values (including
+# individual variable entries thanks to a deep merge on `vars`).
+#
+# Special keys inside the top-level `environment:` mapping:
+#   - default: <env_name>   Name of the environment to use if the CLI user
+#                           does not explicitly supply one.
+#   - all:                  A pseudo-environment whose dbt args + vars are
+#                           applied to every concrete environment (can be
+#                           overridden per environment).
+#
+# Structure:
+#
+# environment:
+#   default: <env_name>
+#   all:
+#     <dbt_arg>: <value>
+#     vars:
+#       <variable_name>: <value>
+#   <env_name>:
+#     <dbt_arg>: <value>
+#     vars:
+#       <variable_name>: <value>
+#
+# Below is a minimal configuration with two environments (dev, prod).
+# This example project is configured to build successfully in dev, and
+# unsuccessfully in prod, emulating a common real-world scenario.
+
+environment:
+  default: dev
+
+  all:
+    indirect-selection: buildable
+
+  dev:
+    target: dev
+    vars:
+      filter_null_values: true
+
+  prod:
+    target: prod
+    vars:
+      filter_null_values: false
