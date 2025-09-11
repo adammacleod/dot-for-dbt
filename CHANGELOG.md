@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+(no changes)
+
+## [0.4.2] - 2025-09-11
+
 ### Changed
 - Simplified profiles.yml discovery: now parses JSON line output from `dbt debug --log-format json` to extract `profiles_dir`, replacing brittle last-line string parsing logic.
 
