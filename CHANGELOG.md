@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+## [0.4.3] - 2025-09-11
+
 ### Added
 - Support for targets configured with 'dataset' (e.g. BigQuery) instead of 'schema' when generating isolated profiles; the chosen field is suffixed with the git short hash.
 
