@@ -116,7 +116,7 @@ uv version --bump patch --dry-run
 This edits `pyproject.toml`. Commit & tag:
 ```bash
 git add pyproject.toml CHANGELOG.md uv.lock
-git commit -m "release: vX.Y.Z"
+git commit -m "Release vX.Y.Z"
 git tag -a vX.Y.Z -m "vX.Y.Z"
 ```
 
