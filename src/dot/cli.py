@@ -7,7 +7,6 @@ import subprocess
 from pathlib import Path
 
 from dot import dot, __version__
-from dot.config import load_config
 from .git import get_repo_path
 
 from . import logging
@@ -179,7 +178,7 @@ def app() -> int:
         return 0
 
     try:
-        logger.info(f"[purple]🚀  Spawning dbt 🚀[/]")
+        logger.info(f"[red]🚀  Spawning dbt 🚀[/]")
         result = subprocess.run(
             dbt_command,
             check=True

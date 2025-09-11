@@ -5,7 +5,7 @@ from pathlib import Path
 from . import dot, logging
 from .logging import get_logger
 
-logger = get_logger("dot.dot")
+logger = get_logger("dot.profiles")
 
 def write_isolated_profiles_yml(
     dbt_project_path: Path,
@@ -123,8 +123,16 @@ def _profiles_yml_path(
         text=True
     )
 
+    logger.debug(f"[bold]dbt debug output:[/]\n{result.stdout}")
+
     # Extract the path from the last line of stdout
-    path = Path(result.stdout.splitlines()[-1].strip().split(' ', 1)[1]) / "profiles.yml"
+    try:
+        profiles_path = result.stdout.splitlines()[-1].strip().split(' ', 1)[1]
+    except IndexError as e:
+        raise FileNotFoundError("Could not parse profiles.yml location from dbt debug output.") from e
+    
+    logger.info(f"Detected profiles.yml location: {profiles_path}")
+    path = Path(profiles_path) / "profiles.yml"
 
     if path.exists():
         return path

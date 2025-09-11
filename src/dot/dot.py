@@ -125,7 +125,7 @@ def dbt_command(
         log_level,
         f"[bold]dbt_project_path:[/] {isolated_dbt_project_path if gitref else dbt_project_path}",
     )
-    logger.debug("dbt Command Environment Args (pre‑CLI build):")
+    logger.debug("[bold]Resolved dot Environment Config:[/]")
     logger.debug(json.dumps(env_args, indent=2))
     logger.log(
         log_level, f"[bold]dbt command:[/] [green]{' '.join(dbt_cmd)}[/]"

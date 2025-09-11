@@ -23,3 +23,7 @@
 - Allow dot to fully manage your profiles dir. It could prompt on the command line for settings, automatically store them into env vars, or something along those lines. eg: store them safely!
 
 - Make vscode fully ignore the .dot directory, this causes havoc when doing ctrl-p etc, although maybe it's useful to see what's in each worktree.
+
+- A bit like dbt, dot specific config flags can be prefixed with `+` in the config files.
+
+- Maybe add the ability to `+extend` within an environment, which lets you take all settings from another environment, but add any additional changes on top. Is this actually useful or just makes things harder? My use case is if you have two repos, maybe you want to sometimes build with the upstream as the CI for upstream, and sometimes you want to take upstream as your own private build of that repo.
