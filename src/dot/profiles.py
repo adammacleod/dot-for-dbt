@@ -1,4 +1,5 @@
 import yaml
+import json
 import subprocess
 from pathlib import Path
 
@@ -112,7 +113,12 @@ def _profiles_yml_path(
         dbt_command_name="debug",
         dbt_project_path=dbt_project_path,
         active_environment=active_environment,
-        passthrough_args=["--config-dir"],
+        passthrough_args=[
+            "--config-dir",
+            "--log-format", "json",
+            "--no-quiet",
+            "--log-level", "info"
+        ],
         log_level=logging.DEBUG,
     )
 
@@ -125,16 +131,28 @@ def _profiles_yml_path(
 
     logger.debug(f"[bold]dbt debug output:[/]\n{result.stdout}")
 
-    # Extract the path from the last line of stdout
-    try:
-        profiles_path = result.stdout.splitlines()[-1].strip().split(' ', 1)[1]
-    except IndexError as e:
-        raise FileNotFoundError("Could not parse profiles.yml location from dbt debug output.") from e
-    
-    logger.info(f"Detected profiles.yml location: {profiles_path}")
-    path = Path(profiles_path) / "profiles.yml"
+    profiles_dir = None
+    for line in result.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            obj = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        data = obj.get("data")
+        if isinstance(data, dict) and "profiles_dir" in data:
+            profiles_dir = data["profiles_dir"]
+            break
+
+    if not profiles_dir:
+        raise FileNotFoundError("Could not parse profiles_dir from dbt debug json output.")
+
+    path = Path(profiles_dir) / "profiles.yml"
+
+    logger.info(f"[bold]Detected profiles.yml location:[/] {path}")
 
     if path.exists():
         return path
 
-    raise FileNotFoundError("Could not detect profiles.yml location.")
+    raise FileNotFoundError(f"profiles.yml not found at detected location: {path}")
