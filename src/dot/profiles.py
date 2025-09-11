@@ -3,10 +3,9 @@ import json
 import subprocess
 from pathlib import Path
 
-from . import dot, logging
-from .logging import get_logger
+from . import logging
 
-logger = get_logger("dot.profiles")
+logger = logging.get_logger("dot.profiles")
 
 def write_isolated_profiles_yml(
     dbt_project_path: Path,
@@ -60,7 +59,14 @@ def write_isolated_profiles_yml(
         raise ValueError(f"Target '{active_environment}' not found in outputs of profile '{profile_name}' within {profiles_yml_path}")
 
     target = profile["outputs"][active_environment]
-    target["schema"] = f"{target.get('schema', 'dbt')}_{short_hash}"
+
+    field = "schema"
+    if "schema" in target and "dataset" in target:
+        raise ValueError("Both 'schema' and 'dataset' are set in the target configuration in profiles.yml. Only one should be set.")
+    elif "dataset" in target:
+        field = "dataset"
+
+    target[field] = f"{target.get(field, 'dbt')}_{short_hash}"
 
     new_profiles_yml = {
         profile_name: {
@@ -109,7 +115,8 @@ def _profiles_yml_path(
     # definitions (not just code) becomes critical.
 
     logger.debug("Detecting profiles.yml location with `dbt debug`:")
-    dbt_command = dot.dbt_command(
+    from .dot import dbt_command
+    dbt_cmd = dbt_command(
         dbt_command_name="debug",
         dbt_project_path=dbt_project_path,
         active_environment=active_environment,
@@ -123,7 +130,7 @@ def _profiles_yml_path(
     )
 
     result = subprocess.run(
-        dbt_command,
+        dbt_cmd,
         check=True,
         capture_output=True,
         text=True

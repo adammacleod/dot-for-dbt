@@ -6,7 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
-(no changes)
+### Added
+- Support for targets configured with 'dataset' (e.g. BigQuery) instead of 'schema' when generating isolated profiles; the chosen field is suffixed with the git short hash.
+
+### Fixed
+- Explicit error raised if both 'schema' and 'dataset' are set simultaneously in a profile target.
+
+### Internal
+- Added tests covering schema vs dataset handling and mutual exclusivity.
+- Refactored profiles module to use a lazy import for the dbt command builder to avoid circular import.
 
 ## [0.4.2] - 2025-09-11
 
