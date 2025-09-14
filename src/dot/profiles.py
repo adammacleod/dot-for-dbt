@@ -86,6 +86,8 @@ def write_isolated_profiles_yml(
             default_flow_style=False
         )
 
+EXISTING_PROFILES_YML_PATHS = {}
+
 def _profiles_yml_path(
     dbt_project_path: Path,
     active_environment: str
@@ -104,6 +106,11 @@ def _profiles_yml_path(
         FileNotFoundError: If the profiles.yml location cannot be detected.
     """
 
+    # Cache results to avoid repeated calls to `dbt debug`
+    existing_path_key = (str(dbt_project_path.resolve()), active_environment)
+    if existing_path_key in EXISTING_PROFILES_YML_PATHS:
+        return EXISTING_PROFILES_YML_PATHS[existing_path_key]
+
     # NOTE (ADR 0002):
     # Configuration for environments & vars is now sourced from:
     #   dot_environments.yml (+ optional dot_environments.user.yml)
@@ -114,7 +121,7 @@ def _profiles_yml_path(
     # resolving config from the worktree commit if reproducibility of config
     # definitions (not just code) becomes critical.
 
-    logger.debug("Detecting profiles.yml location with `dbt debug`:")
+    logger.debug("[blue]:detective:  Detecting profiles.yml location with `dbt debug`[/]")
     from .dot import dbt_command
     dbt_cmd = dbt_command(
         dbt_command_name="debug",
@@ -126,7 +133,6 @@ def _profiles_yml_path(
             "--no-quiet",
             "--log-level", "info"
         ],
-        log_level=logging.DEBUG,
     )
 
     result = subprocess.run(
@@ -157,9 +163,10 @@ def _profiles_yml_path(
 
     path = Path(profiles_dir) / "profiles.yml"
 
-    logger.info(f"[bold]Detected profiles.yml location:[/] {path}")
+    logger.debug(f"[bold]Detected profiles.yml location:[/] {path}")
 
     if path.exists():
+        EXISTING_PROFILES_YML_PATHS[existing_path_key] = path
         return path
 
     raise FileNotFoundError(f"profiles.yml not found at detected location: {path}")

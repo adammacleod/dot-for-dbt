@@ -52,13 +52,13 @@ COMMON_DBT_ARGS = [
     "--target",
     "--profiles-dir",
     "--project-dir",
-    "--target-path",
     "--log-path",
 ]
 
 DBT_COMMAND_ARGS = {
     "build": [
         *COMMON_DBT_ARGS,
+        "--target-path",
         "--select",
         "--exclude",
         "--selector",
@@ -69,6 +69,7 @@ DBT_COMMAND_ARGS = {
     "clone": [*COMMON_DBT_ARGS],
     "compile": [
         *COMMON_DBT_ARGS,
+        "--target-path",
         "--select",
         "--exclude",
         "--selector",
@@ -94,6 +95,7 @@ DBT_COMMAND_ARGS = {
     "retry": [*COMMON_DBT_ARGS],
     "run": [
         *COMMON_DBT_ARGS,
+        "--target-path",
         "--select",
         "--exclude",
         "--selector",
@@ -101,10 +103,12 @@ DBT_COMMAND_ARGS = {
     ],
     "run-operation": [
         *COMMON_DBT_ARGS,
+        "--target-path",
         "--args",
     ],
     "seed": [
         *COMMON_DBT_ARGS,
+        "--target-path",
         "--select",
         "--exclude",
         "--selector",
@@ -115,6 +119,7 @@ DBT_COMMAND_ARGS = {
     ],
     "snapshot": [
         *COMMON_DBT_ARGS,
+        "--target-path",
         "--select",
         "--exclude",
         "--selector",
@@ -122,6 +127,7 @@ DBT_COMMAND_ARGS = {
     "source": [*COMMON_DBT_ARGS],
     "test": [
         *COMMON_DBT_ARGS,
+        "--target-path",
         "--select",
         "--exclude",
         "--selector",
@@ -158,7 +164,7 @@ def load_config(project_root: Path) -> DotConfig:
     root_key = str(project_root.resolve())
     if root_key not in _logged_config_roots:
         _logged_config_roots.add(root_key)
-        logger.debug(f"Loading dot configuration for {project_root}")
+        logger.debug(f"[blue]⚙️  Loading dot configuration for {project_root}[/]")
         if project_env_file.exists():
             logger.debug(f"Found {PROJECT_CONFIG_FILENAME} at {project_env_file}")
         else:

@@ -15,8 +15,8 @@ from .git import (
 from .config import (
     load_config,
     resolve_environment,
-    dbt_cli_args,
     ConfigError,
+    DBT_COMMAND_ARGS,
 )
 
 logger = get_logger("dot.dot")
@@ -27,7 +27,6 @@ def dbt_command(
     active_environment: Optional[str],
     passthrough_args: Optional[list[str]] = None,
     gitref: Optional[str] = None,
-    log_level: int = logging.INFO,
 ) -> list[str]:
     """
     Construct a dbt CLI command as a list of arguments using the new configuration
@@ -46,7 +45,6 @@ def dbt_command(
         active_environment: Name of the environment to use (may be None -> default).
         passthrough_args: Extra args after '--' passed directly to dbt.
         gitref: Optional git ref / commit hash for isolated build.
-        log_level: Logging verbosity for emitted command details.
 
     Returns:
         List[str]: The dbt command argument list suitable for subprocess execution.
@@ -63,8 +61,10 @@ def dbt_command(
     except ConfigError as e:
         raise ValueError(str(e)) from e
 
-    # Build allowed dbt CLI args (already filtered by command allow‑list)
-    env_args: dict[str, Any] = dbt_cli_args(dbt_command_name, env_spec)
+    # Start with full environment args (unfiltered). We will filter late so that
+    # any mutations (e.g. isolated build path rewrites) are preserved before
+    # applying the per-command allow‑list.
+    env_args: dict[str, Any] = {**env_spec.args, "vars": env_spec.vars}
 
     # Always enforce project-dir to be the real project path initially
     env_args["project-dir"] = str(dbt_project_path)
@@ -121,15 +121,11 @@ def dbt_command(
 
     dbt_cmd = _dbt_command(dbt_command_name, env_args, passthrough_args)
 
-    logger.log(
-        log_level,
+    logger.debug(
         f"[bold]dbt_project_path:[/] {isolated_dbt_project_path if gitref else dbt_project_path}",
     )
     logger.debug("[bold]Resolved dot Environment Config:[/]")
     logger.debug(json.dumps(env_args, indent=2))
-    logger.log(
-        log_level, f"[bold]dbt command:[/] [green]{' '.join(dbt_cmd)}[/]"
-    )
 
     return dbt_cmd
 
@@ -143,11 +139,17 @@ def _dbt_command(
     passthrough_args: List[str],
 ) -> list[str]:
     """
-    Build the dbt command list from the provided (already filtered) environment
-    and passthrough args.
+    Build the dbt command list.
 
-    We JSON encode vars into a single --vars=... argument if present.
+    Performs late per-command allow‑list filtering on the provided environment
+    (which may contain extra keys added or mutated earlier, e.g. isolated build
+    path rewrites) and then converts it to dbt CLI flags. Vars are JSON encoded
+    into a single --vars=... argument if present.
     """
+    # Late filtering (after any mutations in dbt_command)
+    allowed = set(a.lstrip("-") for a in DBT_COMMAND_ARGS.get(dbt_command_name, []))
+    environment = {k: v for k, v in environment.items() if k == "vars" or k in allowed}
+
     dbt_cmd: List[str] = ["dbt", dbt_command_name]
 
     vars_dict = environment.get("vars", {})

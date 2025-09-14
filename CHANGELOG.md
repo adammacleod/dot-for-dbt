@@ -9,10 +9,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 ### Added
 - Modular startup prompt framework (`cli_prompts.py`) with registrable `PromptTask`s.
 - VSCode settings prompt adding `.dot` exclusion to `search.exclude` and `files.watcherExclude`.
+- Automatic execution of `dbt deps` for isolated builds (when a git ref is supplied) before running the primary dbt command.
+- New `--no-deps` flag to skip the automatic dependency installation (useful for CI caching or when deps already materialised). Automatic run is also skipped when the primary command is `deps` or when `--dry-run` is used.
 
 ### Changed
 - Gitignore enforcement now uses unified y/N/e prompt (selecting `e` permanently disables via `prompts.gitignore: disabled`).
 - README & CONTRIBUTING updated for prompt configuration and `--disable-prompts` flag.
+- Deferred dbt CLI arg allow‑list filtering into internal `_dbt_command` (late filtering after isolated build path rewrites, project-dir adjustments, etc.) so all mutations are applied before pruning invalid args per subcommand.
+- dbt command logging moved from builder (`dbt_command`) to CLI layer: final command now logged only once immediately before execution (and for isolated deps), improving chronological clarity and avoiding early premature command output.
 
 ### Removed
 - `--no-gitignore-check` flag (use `--disable-prompts` for one-off suppression or set `prompts.gitignore: disabled` in `.dot/config.yml`).

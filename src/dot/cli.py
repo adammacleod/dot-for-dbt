@@ -8,6 +8,7 @@ from pathlib import Path
 
 from dot import dot, __version__
 from .git import get_repo_path
+from .config import load_config
 from .cli_prompts import run_registered_prompts, PromptAbortError
 
 from . import logging
@@ -54,6 +55,12 @@ def parse_args() -> tuple[argparse.Namespace, list[str]]:
         action="store_true",
         default=False,
         help="Disable startup prompts (gitignore, editor settings) for this run"
+    )
+    parser.add_argument(
+        "--no-deps",
+        action="store_true",
+        default=False,
+        help="Skip automatic 'dbt deps' when running against an isolated build (environment@ref or @ref)."
     )
     allowed_dbt_commands = [
         "build", "clean", "clone", "compile", "debug", "deps", "docs", "init",
@@ -108,9 +115,11 @@ def app() -> int:
     except PromptAbortError as e:
         logger.error(str(e))
         sys.exit(1)
-
     try:
         active_environment = args.environment
+
+        # Pre-load config, mostly for logging purposes, which is a bit silly.
+        load_config(dbt_project_path)
 
         gitref = None
         if active_environment and "@" in active_environment:
@@ -118,6 +127,24 @@ def app() -> int:
             active_environment = None if active_environment.strip() == '' else active_environment
             gitref = None if gitref.strip() == '' else gitref
 
+        # If this is an isolated build (gitref provided) automatically install dependencies
+        # unless user requested --no-deps or the primary command itself is 'deps' or dry-run.
+        if gitref and not args.no_deps and args.dbt_command != "deps" and not args.dry_run:
+            try:
+                logger.info("[blue]📦 Installing dbt dependencies in isolated worktree[/]")
+                deps_cmd = dot.dbt_command(
+                    dbt_command_name="deps",
+                    dbt_project_path=dbt_project_path,
+                    active_environment=active_environment,
+                    passthrough_args=[],
+                    gitref=gitref
+                )
+                logger.info(f"[green]{' '.join(deps_cmd)}[/]")
+                subprocess.run(deps_cmd, check=True)
+            except subprocess.CalledProcessError as e:
+                logger.error("[red]dbt deps failed (use --no-deps to skip)[/]")
+                return e.returncode
+            
         dbt_command = dot.dbt_command(
             dbt_command_name=args.dbt_command,
             dbt_project_path=dbt_project_path,
@@ -125,7 +152,6 @@ def app() -> int:
             passthrough_args=passthrough_args,
             gitref=gitref
         )
-
     except Exception as e:
         logger.error(f"Error: {e}")
         if args.verbose:
@@ -133,11 +159,14 @@ def app() -> int:
         else:
             sys.exit(1)
 
+    # Log the final dbt command only once, right before potential execution (after any isolated deps installation)
+    if not args.dry_run: logger.info(f"[bold red]🚀 Spawning dbt 🚀[/]")
+    logger.info(f"[green]{' '.join(dbt_command)}[/]")
+
     if args.dry_run:
         return 0
 
     try:
-        logger.info(f"[red]🚀  Spawning dbt 🚀[/]")
         result = subprocess.run(
             dbt_command,
             check=True

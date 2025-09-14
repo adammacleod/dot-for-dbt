@@ -76,26 +76,29 @@ dot <dbt_command> @<gitref or commit>
 
 This will check out the specified commit in a git worktree, generate a dedicated `profiles.yml`, and build into `yourschema_<short git hash>`. This enables reproducible, isolated builds for any point in your repository history.
 
+### Passing Additional dbt Args to the CLI
+
+Anything after `--` is passed through untouched:
+```sh
+dot run dev@main -- --select my_model+
+```
+
 ## Startup Prompts
 
 `dot` will prompt you to complete these two tasks unless you already have them configured, have chosen to ignore them, or you run with `--no-prompts`. These two changes help prevent serious problems, and are strongly encouraged.
 
-1. Add `.dot/` to `.gitignore`
+You can also suppress all prompts with `--disable-prompts`, eg: `dot build --disable-prompts`. This is strongly discouraged, but could be useful for CI jobs.
+
+### Add `.dot/` to `.gitignore`
 
 Why: The `.dot` directory contains build artifacts and may include transient or sensitive data. Ignoring it prevents accidental commits, keeps diffs clean, and avoids polluting history.
 
-2. Add VSCode workspace settings for the `.dot` folder:
+### Add VSCode workspace settings for the `.dot` folder:
 
 Why: Excluding `.dot` from VSCode search and file watcher keeps results noise‑free and prevents file handle locks that can interfere with commands like `dbt deps` when historical builds populate that directory. If you don't do this step, you may encounter errors when building.
 
-Example entries the tool will add if you agree:
+Updated entries in `.vscode/settings.json` (created or merged if valid JSON):
 
-`.gitignore`
-```
-.dot/
-```
-
-`.vscode/settings.json` (created or merged if valid JSON):
 ```json
 {
   "search.exclude": {
@@ -107,8 +110,6 @@ Example entries the tool will add if you agree:
   }
 }
 ```
-
-You can also suppress all prompts with `--disable-prompts`, eg: `dot build --disable-prompts`. This is strongly discouraged, but could be useful for CI jobs.
 
 ## Configuration Files
 
@@ -322,12 +323,21 @@ dot run dev@2024-12-01-tag
 - Updates only the `schema` field (preserving credentials, threads, etc.)
 - Writes a minimal isolated `profiles.yml` containing just that profile + target
 
-### Passing Additional dbt Args
+### Automatic Dependency Installation for Isolated Builds
 
-Anything after `--` is passed through untouched:
+When you specify a git ref (either `env@ref` or just `@ref`) `dot` will automatically run `dbt deps` inside the isolated worktree before executing your requested primary dbt command.
+
+Auto install is skipped when:
+- You pass the `--no-deps` flag
+- Your primary command is already `deps`
+- You run with `--dry-run`
+
+Skip dependency install:
 ```sh
-dot run dev@main -- --select my_model+
+dot --no-deps build dev@feature/my-branch
 ```
+
+You can still run `dot deps dev@feature/my-branch` manually if desired.
 
 ### Cleanup
 
