@@ -56,7 +56,7 @@ dot run dev@feature/my-branch
 Basic usage:
 
 ```sh
-dot <dbt_command> <environment> [--dry-run] [--no-gitignore-check]
+dot <dbt_command> <environment> [--dry-run] [--disable-prompts]
 ```
 
 - `<dbt_command>` is any supported dbt command (e.g., build, run, test).
@@ -76,21 +76,39 @@ dot <dbt_command> @<gitref or commit>
 
 This will check out the specified commit in a git worktree, generate a dedicated `profiles.yml`, and build into `yourschema_<short git hash>`. This enables reproducible, isolated builds for any point in your repository history.
 
-## .gitignore Requirement
+## Startup Prompts
 
-The `.dot` directory contains build artifacts and must be ignored by git. By default, the CLI enforces this by checking for a `.dot/` entry in your `.gitignore` file before running any commands. If missing, you will be prompted to add it automatically. The CLI will refuse to run if `.dot/` is not ignored.
+`dot` will prompt you to complete these two tasks unless you already have them configured, have chosen to ignore them, or you run with `--no-prompts`. These two changes help prevent serious problems, and are strongly encouraged.
 
-To bypass this enforcement (not recommended for normal use), use the `--no-gitignore-check` flag:
+1. Add `.dot/` to `.gitignore`
 
-```
-dot build --no-gitignore-check
-```
+Why: The `.dot` directory contains build artifacts and may include transient or sensitive data. Ignoring it prevents accidental commits, keeps diffs clean, and avoids polluting history.
 
-To ensure correct setup, add the following line to your `.gitignore`:
+2. Add VSCode workspace settings for the `.dot` folder:
 
+Why: Excluding `.dot` from VSCode search and file watcher keeps results noise‑free and prevents file handle locks that can interfere with commands like `dbt deps` when historical builds populate that directory. If you don't do this step, you may encounter errors when building.
+
+Example entries the tool will add if you agree:
+
+`.gitignore`
 ```
 .dot/
 ```
+
+`.vscode/settings.json` (created or merged if valid JSON):
+```json
+{
+  "search.exclude": {
+    "**/.dot": true,
+    "**/.dot/**": true
+  },
+  "files.watcherExclude": {
+    "**/.dot/**": true
+  }
+}
+```
+
+You can also suppress all prompts with `--disable-prompts`, eg: `dot build --disable-prompts`. This is strongly discouraged, but could be useful for CI jobs.
 
 ## Configuration Files
 

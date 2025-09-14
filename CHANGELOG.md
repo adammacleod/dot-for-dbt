@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+### Added
+- Modular startup prompt framework (`cli_prompts.py`) with registrable `PromptTask`s.
+- VSCode settings prompt adding `.dot` exclusion to `search.exclude` and `files.watcherExclude`.
+
+### Changed
+- Gitignore enforcement now uses unified y/N/e prompt (selecting `e` permanently disables via `prompts.gitignore: disabled`).
+- README & CONTRIBUTING updated for prompt configuration and `--disable-prompts` flag.
+
+### Removed
+- `--no-gitignore-check` flag (use `--disable-prompts` for one-off suppression or set `prompts.gitignore: disabled` in `.dot/config.yml`).
+
 ## [0.4.3] - 2025-09-11
 
 ### Added

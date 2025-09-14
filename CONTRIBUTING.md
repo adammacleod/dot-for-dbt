@@ -57,13 +57,48 @@ dot build
 
 ## Contributing Guidelines
 
-- Ensure your `.gitignore` file contains an entry for `.dot/` in the project root. The CLI enforces this and will refuse to run if `.dot/` is not ignored.
 - Open an issue to discuss any major changes before submitting a pull request.
 - Follow modern Python tooling and conventions (e.g., [uv](https://github.com/astral-sh/uv)).
 - Keep the codebase clean and well-documented.
 - Update the README.md and this file if your changes affect usage or development.
 - Document major design decisions using an ADR (Architectural Decision Register). See the [adr/](adr/) directory for existing decisions, including [ADR 0001: Isolated Builds](adr/0001-isolated-builds.md), which describes the isolated builds workflow.
-- When introducing or reworking execution configuration semantics, use the term “environment” consistently (never “context”).
+
+### Startup Prompt Framework
+
+A modular prompt system (see `src/dot/cli_prompts.py`) runs early in the CLI to enforce or suggest project hygiene tasks:
+
+Current prompt tasks:
+1. `gitignore` (mandatory unless disabled)
+2. `vscode` (optional editor settings exclusion for `.dot`)
+
+Configuration (`.dot/config.yml`):
+```yaml
+prompts:
+  gitignore: enabled | disabled
+  vscode: enabled | disabled
+```
+Missing keys default to `enabled`. Selecting `e` (never) at a prompt persists `disabled`. Global suppression for a single run: `--disable-prompts` (also auto-applied when non-interactive: `not sys.stdin.isatty()`).
+
+Adding a new prompt task:
+1. Define a detector returning `DetectorResult.COMPLIANT | NEEDS_ACTION | SKIP`.
+2. Define an apply function that performs the change idempotently (no-op if already compliant).
+3. Provide a `message_builder()` returning the prompt text.
+4. Register a `PromptTask` in `cli_prompts.py` with:
+   - `id`
+   - `detector`
+   - `apply`
+   - `message_builder`
+   - `config_disable_key` (e.g. `prompts.myfeature`)
+   - `abort_on_no` (True if declining should abort)
+5. Write tests covering: compliant, needs action + yes/no/never, disabled state, global disable, non-interactive.
+6. Update README (if end-user visible) and CHANGELOG under Unreleased.
+7. Avoid storing extra state; rely only on enabled/disabled plus filesystem detection.
+
+Guidelines:
+- Never write user files on parse failure (emit manual instructions instead).
+- Keep apply operations atomic where possible.
+- Log summary line: `Prompt summary: ...`.
+- Prefer conservative merges (only add required keys).
 
 ## How to Get Help
 

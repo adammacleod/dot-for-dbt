@@ -8,6 +8,7 @@ from pathlib import Path
 
 from dot import dot, __version__
 from .git import get_repo_path
+from .cli_prompts import run_registered_prompts, PromptAbortError
 
 from . import logging
 from .logging import get_logger
@@ -49,10 +50,10 @@ def parse_args() -> tuple[argparse.Namespace, list[str]]:
         help="Print the dbt command that would run, but do not execute it"
     )
     parser.add_argument(
-        "--no-gitignore-check",
+        "--disable-prompts",
         action="store_true",
         default=False,
-        help="Bypass .gitignore enforcement for the .dot/ directory"
+        help="Disable startup prompts (gitignore, editor settings) for this run"
     )
     allowed_dbt_commands = [
         "build", "clean", "clone", "compile", "debug", "deps", "docs", "init",
@@ -72,52 +73,6 @@ def parse_args() -> tuple[argparse.Namespace, list[str]]:
     args = parser.parse_args(cli_args)
     return args, passthrough_args
 
-def enforce_dot_gitignore(dbt_project_path: Path) -> None:
-    """
-    Ensures that the .dot/ directory is ignored in the git repository's .gitignore file.
-
-    Args:
-        dbt_project_path (Path): Path to the dbt project directory. 
-                                 Used to locate the git repository root.
-
-    Returns:
-        None. Exits the process if .gitignore is missing or enforcement fails.
-
-    Side Effects:
-        May prompt the user to insert '.dot/' into .gitignore and modify the file.
-        Exits the process with error if enforcement fails.
-    """
-    repo_path = get_repo_path(dbt_project_path)
-    gitignore_path = repo_path / ".gitignore"
-    dot_entry_present = False
-
-    if gitignore_path.exists():
-        with open(gitignore_path, "r", encoding="utf-8") as f:
-            lines = [line.strip() for line in f if line.strip()]
-            for entry in lines:
-                if entry == ".dot" or entry == ".dot/":
-                    dot_entry_present = True
-                    break
-    else:
-        logger.error(f"No .gitignore found in the git repository root ({repo_path}). Please create one and add '.dot/' to it.")
-        sys.exit(1)
-
-    if not dot_entry_present:
-        logger.warning("[bold red]WARNING: dot can potentially put sensitive information into the .dot folder within your repository.[/]")
-        logger.warning(
-            "It is very important that this folder is [bold]never[/] committed to git, "
-            "therefore, [bold]dot[/] requires that the [italic].dot/[/] folder is "
-            "ignored in your .gitignore file."
-        )
-        logger.warning("Note: You can skip this check with the --no-gitignore-check flag, but this is not recommended for general use.")
-        response = input("         Would you like to add '.dot/' to your .gitignore now? [y/N]:").strip().lower()
-        if response == "y":
-            with open(gitignore_path, "a", encoding="utf-8") as f:
-                f.write("\n.dot/\n")
-            logger.warning("Added '.dot/' to .gitignore.")
-        else:
-            logger.error("[yellow]Refusing to run: '.dot/' must be ignored in .gitignore for dot to run.[/]")
-            sys.exit(1)
 
 def app() -> int:
     """
@@ -143,11 +98,15 @@ def app() -> int:
 
     logger.info(f"✨ [bold purple]dot-for-dbt ([cyan]v{__version__}[/])[/] ✨")
 
-    if not args.no_gitignore_check:
-        enforce_dot_gitignore(dbt_project_path)
-
     if not (dbt_project_path / "dbt_project.yml").exists():
         logger.error("[yellow]Error: You must run dot inside of a dbt project folder![/]")
+        sys.exit(1)
+
+    try:
+        repo_root = get_repo_path(dbt_project_path)
+        run_registered_prompts(repo_root, args)
+    except PromptAbortError as e:
+        logger.error(str(e))
         sys.exit(1)
 
     try:

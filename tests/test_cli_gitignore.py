@@ -1,254 +1,130 @@
 import os
 import sys
 from pathlib import Path
+from contextlib import ExitStack
+from unittest.mock import patch
+import io
+import json
 import pytest
-import subprocess
 
-# Ensure src/ is on the Python path for imports
+# Ensure src/ is on path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.dot.cli import app
 
-def run_cli_in_dir(tmp_path, gitignore_content=None, expect_exit_code=0, input_response=None):
-    """
-    Helper to invoke the CLI inside an isolated temp git repo.
-
-    We avoid patching subprocess.run globally so that git commands (rev-parse, etc.)
-    still function. We patch dot.dot.dbt_command so dbt is never actually invoked,
-    returning a harmless echo command instead.
-    """
-    from unittest.mock import patch
-    import io
-
-    # Initialize a git repository in tmp_path
+def _init_git_repo(tmp_path: Path):
     old_cwd = os.getcwd()
     os.chdir(tmp_path)
     try:
-        os.system("git init")
+        os.system("git init -q")
     finally:
         os.chdir(old_cwd)
 
-    # Setup .gitignore only if content provided
-    gitignore_path = tmp_path / ".gitignore"
-    if gitignore_content is not None:
-        gitignore_path.write_text(gitignore_content, encoding="utf-8")
+def _write_dbt_project(tmp_path: Path):
+    (tmp_path / "dbt_project.yml").write_text("name: test\nprofile: test\n", encoding="utf-8")
 
-    # Setup dbt_project.yml
-    (tmp_path / "dbt_project.yml").write_text("name: test\nprofile: test", encoding="utf-8")
-    # Setup vars.yml
-    (tmp_path / "vars.yml").write_text("default: {}", encoding="utf-8")
+def _run_cli(tmp_path: Path, argv, input_responses=None):
+    """
+    Run the CLI inside tmp_path, patching dbt_command to avoid real dbt execution.
+    input_responses: iterable of responses (strings) for successive prompts.
+    Returns (exit_code, stdout, stderr)
+    """
+    _init_git_repo(tmp_path)
+    _write_dbt_project(tmp_path)
 
-    # Patch sys.argv to simulate CLI arguments
-    old_argv = sys.argv
-    sys.argv = ["dot", "build"]
-
-    # Change working directory
     old_cwd = os.getcwd()
-    os.chdir(tmp_path)
-
+    old_argv = sys.argv
     stdout = io.StringIO()
     stderr = io.StringIO()
 
-    try:
-        patches = [
-            patch("dot.dot.dbt_command", return_value=[sys.executable, "-c", "print('mocked')"]),
-        ]
-        if input_response is not None:
-            patches.append(patch("builtins.input", lambda _: input_response))
-
-        with patch("sys.stdout", stdout), patch("sys.stderr", stderr):
-            with ExitStack() as stack:
-                for p in patches:
-                    stack.enter_context(p)
-                try:
-                    app()
-                    exit_code = 0
-                except SystemExit as e:
-                    exit_code = e.code
-    finally:
-        sys.argv = old_argv
-        os.chdir(old_cwd)
-
-    return exit_code, stdout.getvalue(), stderr.getvalue()
-
-
-# Minimal ExitStack import (only when used to keep import locality clear)
-from contextlib import ExitStack
-
-
-def test_cli_refuses_without_gitignore(tmp_path, caplog):
-    # .gitignore missing, should fail
-    gitignore_path = tmp_path / ".gitignore"
-    if gitignore_path.exists():
-        gitignore_path.unlink()
-    with caplog.at_level("ERROR"):
-        exit_code, stdout, stderr = run_cli_in_dir(tmp_path, gitignore_content=None)
-        assert any("No .gitignore found in the git repository root" in message for message in caplog.messages)
-
-
-def test_cli_bypass_gitignore_check(tmp_path):
-    gitignore_path = tmp_path / ".gitignore"
-    gitignore_path.write_text("", encoding="utf-8")
-    old_argv = sys.argv
-    sys.argv = ["dot", "--no-gitignore-check", "build"]
-    old_cwd = os.getcwd()
+    sys.argv = ["dot", *argv]
     os.chdir(tmp_path)
-    from unittest.mock import patch
-    import io
-    stdout = io.StringIO()
-    try:
-        with patch("sys.stdout", stdout):
-            with patch("dot.dot.dbt_command", return_value=[sys.executable, "-c", "print('mocked')"]):
-                try:
-                    app()
-                    exit_code = 0
-                except SystemExit as e:
-                    exit_code = e.code
-        output = stdout.getvalue()
-        assert exit_code == 0
-        assert "dbt_project_path" in output
-    finally:
-        sys.argv = old_argv
-        os.chdir(old_cwd)
 
+    # Iterator for prompt responses
+    if input_responses is not None:
+        responses = iter(input_responses)
+        def _fake_input(_):
+            try:
+                return next(responses)
+            except StopIteration:
+                return ""
+    else:
+        _fake_input = lambda _: ""
 
-def test_cli_bypass_gitignore_check_with_bad_entry(tmp_path):
-    gitignore_path = tmp_path / ".gitignore"
-    gitignore_path.write_text("# test\n", encoding="utf-8")
-    old_argv = sys.argv
-    sys.argv = ["dot", "--no-gitignore-check", "build"]
-    old_cwd = os.getcwd()
-    os.chdir(tmp_path)
-    from unittest.mock import patch
-    import io
-    stdout = io.StringIO()
-    try:
-        with patch("sys.stdout", stdout):
-            with patch("dot.dot.dbt_command", return_value=[sys.executable, "-c", "print('mocked')"]):
-                try:
-                    app()
-                    exit_code = 0
-                except SystemExit as e:
-                    exit_code = e.code
-        output = stdout.getvalue()
-        assert exit_code == 0
-        assert "dbt_project_path" in output
-    finally:
-        sys.argv = old_argv
-        os.chdir(old_cwd)
-
-
-def test_cli_accepts_with_dot_entry(tmp_path):
-    result = run_cli_in_dir(tmp_path, gitignore_content=".dot/\n")
-    exit_code, stdout, stderr = result
-    assert exit_code == 0
-    assert "dbt_project_path" in stdout
-
-
-def test_cli_offers_to_insert_dot_entry(tmp_path, monkeypatch):
-    responses = iter(["y"])
-    monkeypatch.setattr("builtins.input", lambda _: next(responses))
-    result = run_cli_in_dir(tmp_path, gitignore_content="# test\n")
-    exit_code, stdout, stderr = result
-    gitignore_path = tmp_path / ".gitignore"
-    content = gitignore_path.read_text(encoding="utf-8")
-    assert ".dot/" in content
-    assert "Added '.dot/' to .gitignore." in stdout or "Added '.dot/' to .gitignore." in stderr
-    assert exit_code == 0
-
-
-def test_cli_refuses_without_dot_entry(tmp_path):
-    result = run_cli_in_dir(tmp_path, gitignore_content="# test\n", input_response="n")
-    exit_code, stdout, stderr = result
-    assert "Refusing to run: '.dot/' must be ignored in .gitignore for this CLI to operate." in stderr
-    assert exit_code == 1
-
-
-def test_cli_offers_to_insert_dot_entry(tmp_path, monkeypatch):
-    responses = iter(["y"])
-    monkeypatch.setattr("builtins.input", lambda _: next(responses))
-    exit_code, stdout, stderr = run_cli_in_dir(tmp_path, gitignore_content="# test\n")
-    gitignore_path = tmp_path / ".gitignore"
-    content = gitignore_path.read_text(encoding="utf-8")
-    assert ".dot/" in content
-    assert "Added '.dot/' to .gitignore." in stdout or "Added '.dot/' to .gitignore." in stderr
-
-
-def test_cli_bypass_gitignore_check(tmp_path):
-    # Should not fail even if .gitignore is missing
-    old_cwd = os.getcwd()
-    os.chdir(tmp_path)
-    try:
-        os.system("git init")
-    finally:
-        os.chdir(old_cwd)
-    gitignore_path = tmp_path / ".gitignore"
-    if gitignore_path.exists():
-        gitignore_path.unlink()
-    (tmp_path / "dbt_project.yml").write_text("name: test\nprofile: test", encoding="utf-8")
-    (tmp_path / "vars.yml").write_text("default: {}", encoding="utf-8")
-    old_argv = sys.argv
-    sys.argv = ["dot", "--no-gitignore-check", "build"]
-    old_cwd = os.getcwd()
-    os.chdir(tmp_path)
-    try:
+    with ExitStack() as stack:
+        stack.enter_context(patch("dot.dot.dbt_command", return_value=[sys.executable, "-c", "print('mocked dbt')"]))
+        stack.enter_context(patch("sys.stdin.isatty", lambda: True))
+        stack.enter_context(patch("sys.stdout", stdout))
+        stack.enter_context(patch("sys.stderr", stderr))
+        stack.enter_context(patch("builtins.input", _fake_input))
         try:
-            app()
-            exit_code = 0
+            rc = app()
         except SystemExit as e:
-            exit_code = e.code
-        assert exit_code == 0
-    finally:
-        sys.argv = old_argv
-        os.chdir(old_cwd)
+            rc = e.code
+        finally:
+            sys.argv = old_argv
+            os.chdir(old_cwd)
+    return rc, stdout.getvalue(), stderr.getvalue()
 
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
 
-def test_cli_bypass_gitignore_check_with_bad_entry(tmp_path):
-    # Should not fail even if .gitignore does not contain .dot/
-    old_cwd = os.getcwd()
-    os.chdir(tmp_path)
-    try:
-        os.system("git init")
-    finally:
-        os.chdir(old_cwd)
-    gitignore_path = tmp_path / ".gitignore"
-    gitignore_path.write_text("# test\n", encoding="utf-8")
-    (tmp_path / "dbt_project.yml").write_text("name: test\nprofile: test", encoding="utf-8")
-    (tmp_path / "vars.yml").write_text("default: {}", encoding="utf-8")
-    old_argv = sys.argv
-    sys.argv = ["dot", "--no-gitignore-check", "build"]
-    old_cwd = os.getcwd()
-    os.chdir(tmp_path)
-    try:
-        try:
-            app()
-            exit_code = 0
-        except SystemExit as e:
-            exit_code = e.code
-        assert exit_code == 0
-    finally:
-        sys.argv = old_argv
-        os.chdir(old_cwd)
+def test_gitignore_present_no_prompt(tmp_path):
+    (tmp_path / ".gitignore").write_text(".dot/\n", encoding="utf-8")
+    rc, out, err = _run_cli(tmp_path, ["build"])
+    assert rc == 0
+    # Prompt summary logged via logger; presence not asserted here
+    assert ".dot/" in (tmp_path / ".gitignore").read_text(encoding="utf-8")
 
+def test_gitignore_missing_file_never_disables(tmp_path):
+    # No .gitignore at all; choose 'e' (never)
+    rc, out, err = _run_cli(tmp_path, ["build"], input_responses=["e"])
+    assert rc == 0
+    cfg = tmp_path / ".dot" / "config.yml"
+    assert cfg.exists()
+    text = cfg.read_text(encoding="utf-8")
+    assert "prompts:" in text
+    assert "gitignore: disabled" in text
 
-def test_cli_refuses_without_dot_entry(tmp_path):
-    result = run_cli_in_dir(tmp_path, gitignore_content="# test\n", expect_exit_code=1, input_response="n")
-    exit_code, stdout, stderr = result
-    assert exit_code == 1
-
-
-def test_cli_accepts_with_dot_entry(tmp_path):
-    result = run_cli_in_dir(tmp_path, gitignore_content=".dot/\n", expect_exit_code=0)
-    exit_code, stdout, stderr = result
-    assert exit_code == 0
-
-
-def test_cli_offers_to_insert_dot_entry(tmp_path, monkeypatch):
-    responses = iter(["y"])
-    monkeypatch.setattr("builtins.input", lambda _: next(responses))
-    result = run_cli_in_dir(tmp_path, gitignore_content="# test\n", expect_exit_code=0)
-    exit_code, stdout, stderr = result
-    gitignore_path = tmp_path / ".gitignore"
-    content = gitignore_path.read_text(encoding="utf-8")
+def test_gitignore_missing_entry_yes_adds(tmp_path):
+    (tmp_path / ".gitignore").write_text("# initial\n", encoding="utf-8")
+    rc, out, err = _run_cli(tmp_path, ["build"], input_responses=["y"])
+    assert rc == 0
+    content = (tmp_path / ".gitignore").read_text(encoding="utf-8")
     assert ".dot/" in content
-    assert exit_code == 0
+
+def test_gitignore_missing_entry_no_aborts(tmp_path):
+    (tmp_path / ".gitignore").write_text("# test\n", encoding="utf-8")
+    rc, out, err = _run_cli(tmp_path, ["build"], input_responses=["n"])
+    assert rc == 1  # mandatory prompt abort
+    # Ensure not modified
+    content = (tmp_path / ".gitignore").read_text(encoding="utf-8")
+    assert ".dot/" not in content
+
+def test_gitignore_missing_entry_never_disables_and_continues(tmp_path):
+    (tmp_path / ".gitignore").write_text("# test\n", encoding="utf-8")
+    rc, out, err = _run_cli(tmp_path, ["build"], input_responses=["e"])
+    assert rc == 0
+    cfg_text = (tmp_path / ".dot" / "config.yml").read_text(encoding="utf-8")
+    assert "gitignore: disabled" in cfg_text
+    # Second run should not prompt (supply no responses)
+    rc2, out2, err2 = _run_cli(tmp_path, ["build"])
+    assert rc2 == 0
+
+def test_global_disable_skips_gitignore_enforcement(tmp_path):
+    # No .gitignore but global disable
+    rc, out, err = _run_cli(tmp_path, ["--disable-prompts", "build"])
+    assert rc == 0
+    # No config file produced (feature not prompted)
+    assert not (tmp_path / ".dot" / "config.yml").exists()
+
+def test_gitignore_yes_then_idempotent_second_run(tmp_path):
+    (tmp_path / ".gitignore").write_text("# header\n", encoding="utf-8")
+    rc, out, err = _run_cli(tmp_path, ["build"], input_responses=["y"])
+    assert rc == 0
+    rc2, out2, err2 = _run_cli(tmp_path, ["build"])
+    assert rc2 == 0
+    # Ensure single entry (avoid duplicates)
+    lines = [l.strip() for l in (tmp_path / ".gitignore").read_text(encoding="utf-8").splitlines() if l.strip()]
+    assert lines.count(".dot/") == 1

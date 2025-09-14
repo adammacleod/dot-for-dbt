@@ -1,0 +1,9 @@
+{
+    "search.exclude": {
+        "**/.dot": true,
+        "**/.dot/**": true
+    },
+    "files.watcherExclude": {
+        "**/.dot/**": true
+    }
+}
