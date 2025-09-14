@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+(no changes)
+
+## [0.4.4] - 2025-09-14
+
 ### Added
 - Modular startup prompt framework (`cli_prompts.py`) with registrable `PromptTask`s.
 - VSCode settings prompt adding `.dot` exclusion to `search.exclude` and `files.watcherExclude`.
