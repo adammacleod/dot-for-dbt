@@ -27,3 +27,5 @@
 - A bit like dbt, dot specific config flags can be prefixed with `+` in the config files.
 
 - Maybe add the ability to `+extend` within an environment, which lets you take all settings from another environment, but add any additional changes on top. Is this actually useful or just makes things harder? My use case is if you have two repos, maybe you want to sometimes build with the upstream as the CI for upstream, and sometimes you want to take upstream as your own private build of that repo.
+
+- Add some functionality for 'tasks', these are sets of steps which are executed against environments. This is useful if you wanted to run many different operations in one call.
