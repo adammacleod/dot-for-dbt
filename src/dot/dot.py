@@ -27,6 +27,7 @@ def dbt_command(
     active_environment: Optional[str],
     passthrough_args: Optional[list[str]] = None,
     gitref: Optional[str] = None,
+    defer_path: Optional[Path] = None,
 ) -> list[str]:
     """
     Construct a dbt CLI command as a list of arguments using the new configuration
@@ -45,6 +46,7 @@ def dbt_command(
         active_environment: Name of the environment to use (may be None -> default).
         passthrough_args: Extra args after '--' passed directly to dbt.
         gitref: Optional git ref / commit hash for isolated build.
+        defer_path: Optional path to a prior isolated build target directory used for dbt --defer --state <defer_path>.
 
     Returns:
         List[str]: The dbt command argument list suitable for subprocess execution.
@@ -90,9 +92,9 @@ def dbt_command(
 
         create_worktree(repo_path, worktree_path, full_commit_hash)
 
-        isolated_dbt_project_path = (
-            worktree_path / Path.relative_to(dbt_project_path, repo_path)
-        ).resolve()
+        # Compute the project path relative to the repo root explicitly to avoid Windows Path.relative_to pitfalls
+        rel_project_path = dbt_project_path.resolve().relative_to(repo_path.resolve())
+        isolated_dbt_project_path = (worktree_path / rel_project_path).resolve()
 
         if not isolated_dbt_project_path.exists():
             raise ValueError(
@@ -118,6 +120,12 @@ def dbt_command(
         env_args["target-path"] = str(isolated_environment_path / "target")
         env_args["log-path"] = str(isolated_environment_path / "logs")
         env_args["project-dir"] = str(isolated_dbt_project_path)
+
+    # Inject deferral flags if a defer_path path was supplied (commit-based immutable baseline)
+    if defer_path:
+        env_args["defer"] = True
+        env_args["favor-state"] = True
+        env_args["state"] = str(defer_path)
 
     dbt_cmd = _dbt_command(dbt_command_name, env_args, passthrough_args)
 

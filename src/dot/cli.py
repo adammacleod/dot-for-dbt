@@ -5,16 +5,35 @@ import argparse
 import subprocess
 
 from pathlib import Path
+from typing import Optional
 
 from dot import dot, __version__
-from .git import get_repo_path
-from .config import load_config
+from .git import get_repo_path, get_short_commit_hash
+from .config import load_config, resolve_environment, ConfigError
 from .cli_prompts import run_registered_prompts, PromptAbortError
 
 from . import logging
 from .logging import get_logger
 
 logger = get_logger('dot.cli')
+
+def parse_env_gitref(spec: str) -> tuple[Optional[str], Optional[str]]:
+    """
+    Parse a token of the form 'env@ref', '@ref', 'env', or 'env@'.
+    Returns (environment|None, gitref|None).
+    Raises ValueError for multiple '@' separators.
+    """
+    if spec is None:
+        return (None, None)
+    if spec.count('@') > 1:
+        raise ValueError(f"Invalid spec '{spec}': multiple '@' separators.")
+    if '@' in spec:
+        env_part, ref_part = spec.split('@', 1)
+    else:
+        env_part, ref_part = spec, None
+    env_part = env_part.strip() if env_part and env_part.strip() != '' else None
+    ref_part = ref_part.strip() if ref_part and ref_part.strip() != '' else None
+    return env_part, ref_part
 
 def parse_args() -> tuple[argparse.Namespace, list[str]]:
     """
@@ -61,6 +80,12 @@ def parse_args() -> tuple[argparse.Namespace, list[str]]:
         action="store_true",
         default=False,
         help="Skip automatic 'dbt deps' when running against an isolated build (environment@ref or @ref)."
+    )
+    parser.add_argument(
+        "--defer",
+        dest="defer",
+        metavar="env@gitref or @gitref",
+        help="Defer to artifacts from a prior isolated build (git ref required)."
     )
     allowed_dbt_commands = [
         "build", "clean", "clone", "compile", "debug", "deps", "docs", "init",
@@ -115,17 +140,61 @@ def app() -> int:
     except PromptAbortError as e:
         logger.error(str(e))
         sys.exit(1)
+
     try:
-        active_environment = args.environment
+        # Parse primary environment@gitref (may omit gitref)
+        try:
+            active_environment, gitref = parse_env_gitref(args.environment)
+        except ValueError as e:
+            logger.error(str(e))
+            sys.exit(1)
 
-        # Pre-load config, mostly for logging purposes, which is a bit silly.
-        load_config(dbt_project_path)
+        # Pre-load config (needed for defer resolution & default environment)
+        cfg = load_config(dbt_project_path)
 
-        gitref = None
-        if active_environment and "@" in active_environment:
-            active_environment, gitref = active_environment.split("@", 1)
-            active_environment = None if active_environment.strip() == '' else active_environment
-            gitref = None if gitref.strip() == '' else gitref
+        # Defer state resolution (commit-based only)
+        defer_path: Optional[Path] = None
+        if getattr(args, "defer", None):
+            try:
+                defer_env, defer_ref = parse_env_gitref(args.defer)
+            except ValueError as e:
+                logger.error(str(e))
+                sys.exit(1)
+
+            if not defer_ref:
+                logger.error("`--defer` must include a git ref (use `env@gitref` or `@gitref`).")
+                sys.exit(1)
+
+            if defer_env is None:
+                # Need default environment
+                if cfg.default_environment is None:
+                    logger.error("Cannot infer defer environment: no default environment configured.")
+                    sys.exit(1)
+                defer_env = cfg.default_environment
+
+            # Validate environment existence
+            try:
+                resolve_environment(cfg, defer_env)
+            except ConfigError:
+                logger.error(f"Defer environment '{defer_env}' not defined in configuration.")
+                sys.exit(1)
+
+            try:
+                short_hash = get_short_commit_hash(repo_root, defer_ref)
+            except Exception as e:
+                logger.error(f"git ref resolution failed: {e}")
+                sys.exit(1)
+
+            candidate = repo_root / ".dot" / "build" / short_hash / "env" / defer_env / "target"
+            manifest = candidate / "manifest.json"
+            if not candidate.exists():
+                logger.error(f"Deferred state not found at {candidate}. Run: [bold]dot build {defer_env}@{defer_ref}[/] first.")
+                sys.exit(1)
+            if not manifest.exists():
+                logger.error(f"Deferred state path {candidate} missing manifest.json (incomplete or never built?).")
+                sys.exit(1)
+
+            defer_path = candidate
 
         # If this is an isolated build (gitref provided) automatically install dependencies
         # unless user requested --no-deps or the primary command itself is 'deps' or dry-run.
@@ -137,7 +206,8 @@ def app() -> int:
                     dbt_project_path=dbt_project_path,
                     active_environment=active_environment,
                     passthrough_args=[],
-                    gitref=gitref
+                    gitref=gitref,
+                    defer_path=None
                 )
                 logger.info(f"[green]{' '.join(deps_cmd)}[/]")
                 subprocess.run(deps_cmd, check=True)
@@ -150,7 +220,8 @@ def app() -> int:
             dbt_project_path=dbt_project_path,
             active_environment=active_environment,
             passthrough_args=passthrough_args,
-            gitref=gitref
+            gitref=gitref,
+            defer_path=defer_path
         )
     except Exception as e:
         logger.error(f"Error: {e}")

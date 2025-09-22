@@ -100,6 +100,27 @@ Guidelines:
 - Log summary line: `Prompt summary: ...`.
 - Prefer conservative merges (only add required keys).
 
+## Deferred Builds (Commit-Based Deferral)
+
+The defer feature allows a dbt command to treat previously built nodes as complete by pointing dbt to the artifacts (`manifest.json`, etc.) of a prior isolated build. Implementation constraints:
+
+- Commit-based only: defer specs must include a git ref (`env@ref` or `@ref`).
+- Workspace (mutable) deferral intentionally excluded to preserve reproducibility and CI parity.
+- Baseline path: `.dot/build/<short_hash>/env/<env>/target`.
+- Validation performed before spawning dbt: environment existence, git ref resolution, directory presence, `manifest.json` presence.
+- Flags injected: `--defer --favor-state --state <path>` (allow‑list extended for build/run/test).
+
+Testing requirements for changes touching deferral:
+1. Negative specs (`env`, `env@`, `@`, multiple `@`) produce correct error text.
+2. Missing baseline directory and missing manifest produce correct errors.
+3. Successful injection includes all three flags and correct path (normalized separators on Windows).
+4. Same (env, ref) for active and defer still works (idempotent injection).
+5. Unknown environment / missing default environment error cases covered.
+
+When adding new dbt subcommands that may benefit from deferral:
+- Extend `DBT_COMMAND_ARGS` to include `--state`, `--favor-state`, and `--defer` as appropriate.
+- Add integration test ensuring flags pass through.
+
 ## How to Get Help
 
 If you have questions, open an issue or start a discussion in the repository.

@@ -85,7 +85,7 @@ dot run dev@main -- --select my_model+
 
 ## Startup Prompts
 
-`dot` will prompt you to complete these two tasks unless you already have them configured, have chosen to ignore them, or you run with `--no-prompts`. These two changes help prevent serious problems, and are strongly encouraged.
+`dot` will prompt you to complete these two tasks unless you already have them configured, have chosen to ignore them, or you run with `--disable-prompts`. These two changes help prevent serious problems, and are strongly encouraged.
 
 You can also suppress all prompts with `--disable-prompts`, eg: `dot build --disable-prompts`. This is strongly discouraged, but could be useful for CI jobs.
 
@@ -173,6 +173,7 @@ environment:
 ```
 
 ### Rules & Behavior
+
 - All files are optional; absence yields default behavior (no environments, no validation).
 - If `environment.default` is set it must name a defined environment.
 - Variable validation (required / strict) is applied only to variables declared in `dot_vars.yml`.
@@ -192,7 +193,7 @@ Isolated builds let you execute a dbt command against the exact contents of any 
 
 Future features are planned to make more extensive use of isolated builds.
 
-### Quick Start
+### Isolated Builds Quick Start
 
 To build using the default environment specified in `dot_environments.yml` at a particular historical git reference, simply omit the environment and use `@<ref>`:
 
@@ -357,6 +358,64 @@ Currently there is no automatic cleanup. To reclaim space:
 ### Reference
 
 For architectural rationale see: [ADR 0001: Isolated Builds](adr/0001-isolated-builds.md).
+
+## Deferred Builds (Commit-Based State Reuse)
+
+`dot` supports reusing artifacts from a prior isolated build (an environment built at a specific git ref) as a baseline via dbt's deferral mechanism. This lets you skip re‑building upstream dependencies and focus on a subset of models while still guaranteeing reproducibility because the baseline is immutable (tied to a commit).
+
+### Usage
+
+```
+dot build dev@HEAD --defer prod@main -- -s my_model+
+dot test @HEAD --defer @main -- -s state:modified+
+```
+
+Valid --defer forms:
+
+- `env@gitref`  – defer to environment `env` at git ref `gitref`
+- `@gitref`     – defer to the default environment at git ref `gitref`
+
+
+### What It Does
+
+A command like:
+
+```
+dot build dev@HEAD --defer prod@main -- -s my_model
+```
+
+Resolves `prod@main` to the existing isolated build directory:
+
+```
+.dot/build/<short_hash(main)>/env/prod/target
+```
+
+and injects into the constructed dbt command:
+
+```
+--defer --favor-state --state .dot/build/<short_hash(main)>/env/prod/target
+```
+
+### Requirements
+
+- The deferred baseline MUST already exist (run `dot build prod@main` first).
+- The target directory must contain a valid `manifest.json`.
+- Only commit-based (immutable) baselines are supported (ie: you must pass a gitref to --defer). 
+
+### Rationale
+
+Limiting defer to isolated builds at particular commits makes it a lot easier to reason about the current state of your project and helps to avoid errors. While it would be technically possible to allow defering to the current working directory, it does pose some problems when reasoning about the state of your project and database. If you think this would be useful please raise an issue or get in touch, I would love to hear your use case!
+
+### Error Examples
+
+| Spec | Error |
+|------|-------|
+| `--defer prod` | Must include a git ref |
+| `--defer prod@` | Empty git ref |
+| `--defer @` | Missing environment and git ref |
+| Missing baseline directory | Instructs to build it first |
+
+See the development plan (0005) for fuller design rationale.
 
 ## Architectural Decision Records
 

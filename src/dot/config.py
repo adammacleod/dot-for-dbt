@@ -63,6 +63,8 @@ DBT_COMMAND_ARGS = {
         "--exclude",
         "--selector",
         "--resource-type",
+        "--state",
+        "--favor-state",
         "--defer",
     ],
     "clean": [*COMMON_DBT_ARGS],
@@ -99,6 +101,8 @@ DBT_COMMAND_ARGS = {
         "--select",
         "--exclude",
         "--selector",
+        "--state",
+        "--favor-state",
         "--defer",
     ],
     "run-operation": [
@@ -131,6 +135,8 @@ DBT_COMMAND_ARGS = {
         "--select",
         "--exclude",
         "--selector",
+        "--state",
+        "--favor-state",
         "--defer",
     ],
 }

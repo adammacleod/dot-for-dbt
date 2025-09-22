@@ -6,7 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
-(no changes)
+### Added
+- Commit-based deferral feature: `--defer env@gitref` and `--defer @gitref` which injects `--defer --favor-state --state <isolated_target_path>` using prior isolated build artifacts.
+- Tests covering defer success path and failure scenarios (missing git ref, unknown env, missing default env, missing baseline, empty git ref).
+
+### Changed
+- Extended dbt CLI allow‑list for `build`, `run`, and `test` to include `--state` and `--favor-state` so deferral flags pass through.
+- `dbt_command` now supports an optional `defer_path` parameter that injects immutable baseline flags post environment resolution.
+
+### Notes
+- Workspace (mutable) deferral intentionally excluded to preserve reproducibility and CI parity (see Development Plan 0005).
 
 ## [0.4.4] - 2025-09-14
 
