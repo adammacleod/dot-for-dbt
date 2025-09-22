@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+## [0.5.0] - 2025-09-22
+
 ### Added
 - Commit-based deferral feature: `--defer env@gitref` and `--defer @gitref` which injects `--defer --favor-state --state <isolated_target_path>` using prior isolated build artifacts.
 - Tests covering defer success path and failure scenarios (missing git ref, unknown env, missing default env, missing baseline, empty git ref).
